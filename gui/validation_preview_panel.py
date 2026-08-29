@@ -14,6 +14,7 @@ Main responsibilities:
 - Display original and anonymized values for columns being anonymized.
 - Display unchanged columns only once to reduce unnecessary preview width.
 - Exclude columns that will not appear in the target table.
+- Format Decimal values in normal numeric form instead of scientific notation.
 - Record preview validation, success, and failure events in the technical log.
 - Clear previous preview results when starting a new session.
 
@@ -23,6 +24,8 @@ to the technical log.
 This module does not create target tables, insert data, commit transactions,
 or perform full anonymization execution.
 """
+
+from decimal import Decimal
 
 from PySide6.QtWidgets import (
     QWidget,
@@ -88,13 +91,35 @@ class ValidationPreviewPanel(QWidget):
         # ------------------------------------------------------------------
         # QVBoxLayout places preview controls and results vertically.
         layout = QVBoxLayout()
-
         layout.addWidget(self.preview_button)
         layout.addWidget(QLabel("Anonymization Preview:"))
         layout.addWidget(self.preview_table)
         layout.addWidget(self.status_label)
 
         self.setLayout(layout)
+
+    def format_preview_value(self, value):
+        # ------------------------------------------------------------------
+        # SECTION 6: FORMAT VALUE FOR PREVIEW DISPLAY
+        # ------------------------------------------------------------------
+        # Decimal values may otherwise appear in scientific notation.
+        #
+        # Example:
+        #
+        # Decimal("4E+6")
+        #
+        # str(value)     -> 4E+6
+        # format(...,"f") -> 4000000
+        #
+        # This affects only the GUI display. The actual numeric value used
+        # during execution remains unchanged.
+        if value is None:
+            return ""
+
+        if isinstance(value, Decimal):
+            return format(value, "f")
+
+        return str(value)
 
     def run_preview(
         self,
@@ -104,14 +129,12 @@ class ValidationPreviewPanel(QWidget):
         target_config
     ):
         # ------------------------------------------------------------------
-        # SECTION 6: VALIDATE GUI DATABASE CONNECTION
+        # SECTION 7: VALIDATE GUI DATABASE CONNECTION
         # ------------------------------------------------------------------
-        # Preview requires a connection that was successfully tested in
-        # DatabaseConnectionPanel.
+        # Preview requires a successfully tested database connection.
         if connection_config is None:
             logger.warning(
-                "Preview stopped because no tested GUI database connection "
-                "was available."
+                "Preview stopped because no tested GUI database connection was available."
             )
 
             self.status_label.setStyleSheet(
@@ -125,7 +148,7 @@ class ValidationPreviewPanel(QWidget):
             return
 
         # ------------------------------------------------------------------
-        # SECTION 7: VALIDATE ANONYMIZATION CONFIGURATION
+        # SECTION 8: VALIDATE ANONYMIZATION CONFIGURATION
         # ------------------------------------------------------------------
         # Preview and execution use the same shared validation rules.
         validation_error = validate_configuration(
@@ -153,11 +176,10 @@ class ValidationPreviewPanel(QWidget):
             return
 
         # ------------------------------------------------------------------
-        # SECTION 8: READ PREVIEW CONFIGURATION
+        # SECTION 9: READ PREVIEW CONFIGURATION
         # ------------------------------------------------------------------
         source_schema = source_config["source_schema"]
         source_table = source_config["source_table"]
-
         excluded_columns = target_config["excluded_columns"]
 
         # Only columns that will exist in the target table should appear
@@ -172,7 +194,7 @@ class ValidationPreviewPanel(QWidget):
 
         try:
             # ------------------------------------------------------------------
-            # SECTION 9: START PREVIEW
+            # SECTION 10: START PREVIEW
             # ------------------------------------------------------------------
             self.status_label.setStyleSheet("")
             self.status_label.setText("Generating preview...")
@@ -182,16 +204,15 @@ class ValidationPreviewPanel(QWidget):
             self.preview_table.setRowCount(0)
             self.preview_table.setColumnCount(0)
 
-            # Open a short-lived Oracle connection using the tested GUI
-            # connection configuration.
+            # Open a short-lived Oracle connection.
             connection = connect_to_oracle(
                 connection_config
             )
 
             # ------------------------------------------------------------------
-            # SECTION 10: READ FIRST SOURCE BATCH
+            # SECTION 11: READ FIRST SOURCE BATCH
             # ------------------------------------------------------------------
-            # Preview reads at most five rows.
+            # Preview reads at most five source rows.
             preview_rows = []
 
             for batch in read_rows_in_batches(
@@ -204,7 +225,7 @@ class ValidationPreviewPanel(QWidget):
                 break
 
             # ------------------------------------------------------------------
-            # SECTION 11: HANDLE EMPTY SOURCE TABLE
+            # SECTION 12: HANDLE EMPTY SOURCE TABLE
             # ------------------------------------------------------------------
             if not preview_rows:
                 logger.warning(
@@ -225,10 +246,9 @@ class ValidationPreviewPanel(QWidget):
                 return
 
             # ------------------------------------------------------------------
-            # SECTION 12: TRANSFORM PREVIEW ROWS
+            # SECTION 13: TRANSFORM PREVIEW ROWS
             # ------------------------------------------------------------------
-            # Store original and transformed rows only in application memory.
-            # Sensitive preview values are intentionally not logged.
+            # Original and transformed row values remain only in memory.
             transformed_rows = []
 
             for row in preview_rows:
@@ -240,17 +260,16 @@ class ValidationPreviewPanel(QWidget):
                 )
 
             # ------------------------------------------------------------------
-            # SECTION 13: CONFIGURE PREVIEW TABLE
+            # SECTION 14: CONFIGURE PREVIEW TABLE
             # ------------------------------------------------------------------
-            # Columns with anonymization rules are displayed twice:
+            # Columns with anonymization rules appear twice:
             #
             # COLUMN - ORIGINAL
             # COLUMN - ANONYMIZED
             #
-            # Columns without anonymization rules are displayed only once
-            # because their values remain unchanged.
+            # Columns without anonymization rules appear only once.
             #
-            # Excluded columns do not appear in the preview at all.
+            # Excluded columns do not appear.
             headers = []
 
             for column_name in included_columns:
@@ -281,14 +300,13 @@ class ValidationPreviewPanel(QWidget):
             )
 
             # ------------------------------------------------------------------
-            # SECTION 14: DISPLAY PREVIEW VALUES
+            # SECTION 15: DISPLAY PREVIEW VALUES
             # ------------------------------------------------------------------
-            # Anonymized columns show both the original and protected values.
+            # Anonymized columns show original and anonymized values.
             #
-            # Unchanged columns show only their original value once.
+            # Unchanged columns show their value only once.
             for row_number, original_row in enumerate(preview_rows):
                 transformed_row = transformed_rows[row_number]
-
                 table_column = 0
 
                 for column_name in included_columns:
@@ -296,10 +314,8 @@ class ValidationPreviewPanel(QWidget):
                         column_name
                     )
 
-                    original_text = (
-                        ""
-                        if original_value is None
-                        else str(original_value)
+                    original_text = self.format_preview_value(
+                        original_value
                     )
 
                     # ----------------------------------------------------------
@@ -310,13 +326,11 @@ class ValidationPreviewPanel(QWidget):
                             column_name
                         )
 
-                        anonymized_text = (
-                            ""
-                            if anonymized_value is None
-                            else str(anonymized_value)
+                        anonymized_text = self.format_preview_value(
+                            anonymized_value
                         )
 
-                        # Display the original value.
+                        # Display original value.
                         self.preview_table.setItem(
                             row_number,
                             table_column,
@@ -325,7 +339,7 @@ class ValidationPreviewPanel(QWidget):
                             )
                         )
 
-                        # Display the anonymized value beside it.
+                        # Display anonymized value.
                         self.preview_table.setItem(
                             row_number,
                             table_column + 1,
@@ -334,15 +348,14 @@ class ValidationPreviewPanel(QWidget):
                             )
                         )
 
-                        # Two preview columns were used.
                         table_column += 2
 
                     # ----------------------------------------------------------
                     # COLUMN IS NOT ANONYMIZED
                     # ----------------------------------------------------------
                     else:
-                        # The value remains unchanged, therefore display
-                        # the source value only once.
+                        # No anonymization rule exists, therefore displaying
+                        # the value once is sufficient.
                         self.preview_table.setItem(
                             row_number,
                             table_column,
@@ -351,14 +364,13 @@ class ValidationPreviewPanel(QWidget):
                             )
                         )
 
-                        # Only one preview column was used.
                         table_column += 1
 
-            # Resize columns according to their displayed contents.
+            # Resize columns according to displayed contents.
             self.preview_table.resizeColumnsToContents()
 
             # ------------------------------------------------------------------
-            # SECTION 15: REPORT PREVIEW SUCCESS
+            # SECTION 16: REPORT PREVIEW SUCCESS
             # ------------------------------------------------------------------
             self.status_label.setStyleSheet("")
 
@@ -368,7 +380,6 @@ class ValidationPreviewPanel(QWidget):
             )
 
             # Log operational information only.
-            # Sensitive row values are intentionally excluded.
             logger.info(
                 "Preview generated successfully | Source=%s.%s | "
                 "Rows=%s | Rules=%s | ExcludedColumns=%s",
@@ -381,10 +392,9 @@ class ValidationPreviewPanel(QWidget):
 
         except Exception as error:
             # ------------------------------------------------------------------
-            # SECTION 16: HANDLE PREVIEW FAILURE
+            # SECTION 17: HANDLE PREVIEW FAILURE
             # ------------------------------------------------------------------
-            # Record the technical error and traceback but never log
-            # source or anonymized row contents.
+            # Record the error and traceback without logging preview data.
             logger.exception(
                 "Preview failed | Source=%s.%s | Error=%s",
                 source_schema,
@@ -402,15 +412,15 @@ class ValidationPreviewPanel(QWidget):
 
         finally:
             # ------------------------------------------------------------------
-            # SECTION 17: CLOSE DATABASE CONNECTION
+            # SECTION 18: CLOSE DATABASE CONNECTION
             # ------------------------------------------------------------------
-            # Preview is read-only and uses a short-lived Oracle connection.
+            # Preview uses a short-lived read-only connection.
             if connection is not None:
                 connection.close()
 
     def clear_preview(self):
         # ------------------------------------------------------------------
-        # SECTION 18: CLEAR PREVIEW PANEL
+        # SECTION 19: CLEAR PREVIEW PANEL
         # ------------------------------------------------------------------
         # Remove previous preview rows, headers, and status information.
         self.preview_table.clear()

@@ -118,3 +118,19 @@
 2026-08-29 23:01:14,773 | INFO | Data Anonymization Engine Version 1.0.0 GUI started.
 2026-08-29 23:01:55,773 | INFO | Data Anonymization Engine main window closing.
 2026-08-29 23:01:55,788 | INFO | Data Anonymization Engine Version 1.0.0 GUI stopped.
+2026-08-29 23:04:14,588 | INFO | Data Anonymization Engine Version 1.0.0 GUI started.
+2026-08-29 23:04:37,657 | INFO | GUI Oracle connection successful.
+2026-08-29 23:04:52,525 | INFO | GUI Oracle connection successful.
+2026-08-29 23:04:52,529 | INFO | Source metadata loaded successfully | Table=ANON.DA_CUSTOMER | Columns=10
+2026-08-29 23:05:18,757 | INFO | GUI Oracle connection successful.
+2026-08-29 23:05:18,761 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=1 | ExcludedColumns=1
+2026-08-29 23:05:51,383 | INFO | GUI Oracle connection successful.
+2026-08-29 23:05:51,385 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=2 | ExcludedColumns=1
+2026-08-29 23:12:41,022 | INFO | GUI Oracle connection successful.
+2026-08-29 23:12:43,140 | INFO | GUI Oracle connection successful.
+2026-08-29 23:12:45,259 | INFO | GUI Oracle connection successful.
+2026-08-29 23:12:47,379 | INFO | GUI Oracle connection successful.
+2026-08-29 23:13:02,884 | INFO | GUI Oracle connection successful.
+2026-08-29 23:13:04,995 | INFO | GUI Oracle connection successful.
+2026-08-29 23:34:12,076 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 23:34:12,091 | INFO | Data Anonymization Engine Version 1.0.0 GUI stopped.
