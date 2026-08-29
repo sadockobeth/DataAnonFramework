@@ -1,19 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="58590944-972c-4306-8954-d92446bb7b06" name="Changes" comment="" />
+    <list default="true" id="58590944-972c-4306-8954-d92446bb7b06" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/app_logging/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app_logging/log_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/anonymization_rules_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/database_connection_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/execution_history_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/execution_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/execution_summary_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/execution_worker.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/main_window.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/source_table_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/status_helper.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/target_table_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/validation_preview_panel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui_main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reporting/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/reporting/execution_summary.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/validation/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/validation/configuration_validator.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/validation/strategy_validator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/DataAnonFramework.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/DataAnonFramework.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/anonymization/anonymization_methods.py" beforeDir="false" afterPath="$PROJECT_DIR$/anonymization/anonymization_methods.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/anonymization/row_transformation_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/anonymization/row_transformation_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/data_reader.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/data_reader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/data_writer.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/data_writer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/database_metadata.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/database_metadata.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/oracle_connection.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/oracle_connection.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/database/target_table_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/database/target_table_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 3,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3IUMUVaRsxirJ1kjmTDlAVPovrx" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -22,10 +61,18 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python.gui_main.executor": "Run",
+    "Python.log_manager.executor": "Run",
+    "Python.main.executor": "Run",
+    "Python.main_window.executor": "Run",
+    "Python.source_table_panel.executor": "Run",
+    "Python.validation_preview_panel.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
-    "git-widget-placeholder": "master"
+    "git-widget-placeholder": "main"
   }
 }]]></component>
   <component name="SharedIndexes">

@@ -1,0 +1,29 @@
+2026-08-29 20:26:46,437 | INFO | DataAnonFramework GUI started.
+2026-08-29 20:29:43,141 | INFO | Execution SUCCESS | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.09s
+2026-08-29 20:32:09,516 | INFO | Execution SUCCESS | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.12s
+2026-08-29 20:51:09,492 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 20:51:19,736 | INFO | DataAnonFramework GUI started.
+2026-08-29 20:51:46,264 | INFO | GUI Oracle connection successful.
+2026-08-29 20:52:26,480 | INFO | GUI Oracle connection successful.
+2026-08-29 20:52:26,482 | INFO | Source metadata loaded successfully | Table=ANON.DA_CUSTOMER | Columns=10
+2026-08-29 20:52:56,011 | INFO | GUI Oracle connection successful.
+2026-08-29 20:52:56,016 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=2 | ExcludedColumns=1
+2026-08-29 20:53:09,808 | INFO | Execution request accepted | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rules=2 | ExcludedColumns=1
+2026-08-29 20:53:11,944 | INFO | GUI Oracle connection successful.
+2026-08-29 20:53:12,016 | WARNING | Target table already exists | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 20:53:15,730 | INFO | User approved replacement of existing target table | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 20:53:15,751 | INFO | Existing target table dropped successfully | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 20:53:15,778 | INFO | Target table recreated successfully | Target=LUGAO.DA_CUSTOMER_ANON | IncludedColumns=9 | ExcludedColumns=1
+2026-08-29 20:53:15,781 | INFO | GUI configuration controls locked during active execution.
+2026-08-29 20:53:15,781 | INFO | Background anonymization execution started | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | BatchSize=1000
+2026-08-29 20:53:17,876 | INFO | GUI Oracle connection successful.
+2026-08-29 20:53:17,886 | INFO | Anonymization transaction committed successfully | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1
+2026-08-29 20:53:17,887 | INFO | Background anonymization execution completed | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.10s
+2026-08-29 20:53:17,888 | INFO | Execution SUCCESS | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.10s
+2026-08-29 20:53:17,905 | INFO | GUI configuration controls unlocked after execution.
+2026-08-29 21:02:25,464 | INFO | DataAnonFramework main window closing.
+2026-08-29 21:02:25,486 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 21:02:30,576 | INFO | DataAnonFramework GUI started.
+2026-08-29 21:03:07,822 | INFO | Current DataAnonFramework GUI session cleared.
+2026-08-29 21:08:43,848 | INFO | DataAnonFramework main window closing.
+2026-08-29 21:08:43,864 | INFO | DataAnonFramework GUI stopped.
