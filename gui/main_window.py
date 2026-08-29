@@ -2,10 +2,14 @@
 Module: main_window.py
 
 Purpose:
-Assembles and coordinates the main DataAnonFramework GUI window.
+Assembles and coordinates the main Data Anonymization Engine GUI window.
 
 Main responsibilities:
 - Create and display the major GUI panels.
+- Display the centralized application name and version.
+- Provide File and Help application menus.
+- Display application information through a custom About dialog.
+- Display the company logo as the application window icon.
 - Pass successfully tested database configuration between GUI components.
 - Coordinate source metadata, datatype-aware strategies, preview, and execution.
 - Receive and display anonymization execution summaries.
@@ -21,7 +25,9 @@ This module should remain lightweight and should not contain database
 access, anonymization algorithms, target-table creation, or data-writing logic.
 """
 
-from PySide6.QtGui import QAction
+from pathlib import Path
+
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -30,6 +36,9 @@ from PySide6.QtWidgets import (
     QMessageBox
 )
 
+from app_info import APP_NAME, APP_VERSION
+
+from gui.about_dialog import AboutDialog
 from gui.database_connection_panel import DatabaseConnectionPanel
 from gui.source_table_panel import SourceTablePanel
 from gui.anonymization_rules_panel import AnonymizationRulesPanel
@@ -45,8 +54,6 @@ from app_logging.log_manager import save_execution_summary, get_logger
 # ------------------------------------------------------------------
 # SECTION 1: CREATE APPLICATION LOGGER
 # ------------------------------------------------------------------
-# Use the shared technical logger for main-window lifecycle and
-# application-protection events.
 logger = get_logger()
 
 
@@ -58,27 +65,62 @@ class MainWindow(QMainWindow):
         # ------------------------------------------------------------------
         # SECTION 2: CONFIGURE MAIN WINDOW
         # ------------------------------------------------------------------
-        self.setWindowTitle("DataAnonFramework")
-        self.resize(900, 900)
+        self.setWindowTitle(
+            f"{APP_NAME} - Version {APP_VERSION}"
+        )
+
+        self.resize(900, 800)
 
         # ------------------------------------------------------------------
-        # SECTION 3: CREATE APPLICATION MENU
+        # SECTION 3: CONFIGURE APPLICATION WINDOW ICON
         # ------------------------------------------------------------------
-        file_menu = self.menuBar().addMenu("File")
+        # Use the same company logo used by AboutDialog.
+        project_root = Path(__file__).resolve().parent.parent
+        logo_path = project_root / "assets" / "bot_logo.png"
+
+        if logo_path.exists():
+            self.setWindowIcon(
+                QIcon(str(logo_path))
+            )
+
+        # ------------------------------------------------------------------
+        # SECTION 4: CREATE FILE MENU
+        # ------------------------------------------------------------------
+        file_menu = self.menuBar().addMenu(
+            "File"
+        )
 
         self.clear_action = QAction(
             "Clear / Start Afresh",
             self
         )
 
-        self.clear_action.setShortcut("Ctrl+R")
+        self.clear_action.setShortcut(
+            "Ctrl+R"
+        )
 
         file_menu.addAction(
             self.clear_action
         )
 
         # ------------------------------------------------------------------
-        # SECTION 4: CREATE GUI PANELS
+        # SECTION 5: CREATE HELP MENU
+        # ------------------------------------------------------------------
+        help_menu = self.menuBar().addMenu(
+            "Help"
+        )
+
+        self.about_action = QAction(
+            f"About {APP_NAME}",
+            self
+        )
+
+        help_menu.addAction(
+            self.about_action
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 6: CREATE GUI PANELS
         # ------------------------------------------------------------------
         self.connection_panel = DatabaseConnectionPanel()
         self.source_panel = SourceTablePanel()
@@ -90,88 +132,115 @@ class MainWindow(QMainWindow):
         self.history_panel = ExecutionHistoryPanel()
 
         # ------------------------------------------------------------------
-        # SECTION 5: CREATE MAIN WINDOW LAYOUT
+        # SECTION 7: CREATE MAIN WINDOW LAYOUT
         # ------------------------------------------------------------------
         main_layout = QVBoxLayout()
 
-        main_layout.addWidget(self.connection_panel)
-        main_layout.addWidget(self.source_panel)
-        main_layout.addWidget(self.rules_panel)
-        main_layout.addWidget(self.target_panel)
-        main_layout.addWidget(self.preview_panel)
-        main_layout.addWidget(self.execution_panel)
-        main_layout.addWidget(self.summary_panel)
-        main_layout.addWidget(self.history_panel)
+        main_layout.addWidget(
+            self.connection_panel
+        )
+
+        main_layout.addWidget(
+            self.source_panel
+        )
+
+        main_layout.addWidget(
+            self.rules_panel
+        )
+
+        main_layout.addWidget(
+            self.target_panel
+        )
+
+        main_layout.addWidget(
+            self.preview_panel
+        )
+
+        main_layout.addWidget(
+            self.execution_panel
+        )
+
+        main_layout.addWidget(
+            self.summary_panel
+        )
+
+        main_layout.addWidget(
+            self.history_panel
+        )
 
         # ------------------------------------------------------------------
-        # SECTION 6: CREATE SCROLLABLE CENTRAL AREA
+        # SECTION 8: CREATE SCROLLABLE CENTRAL AREA
         # ------------------------------------------------------------------
         content_widget = QWidget()
-        content_widget.setLayout(main_layout)
+
+        content_widget.setLayout(
+            main_layout
+        )
 
         scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setWidget(content_widget)
 
-        self.setCentralWidget(scroll_area)
+        scroll_area.setWidgetResizable(
+            True
+        )
+
+        scroll_area.setWidget(
+            content_widget
+        )
+
+        self.setCentralWidget(
+            scroll_area
+        )
 
         # ------------------------------------------------------------------
-        # SECTION 7: CONNECT GUI PANELS
+        # SECTION 9: CONNECT GUI PANELS
         # ------------------------------------------------------------------
-        # Successfully tested database configuration becomes available
-        # to SourceTablePanel.
         self.connection_panel.connection_ready.connect(
             self.source_panel.set_connection_config
         )
 
-        # Source metadata configures the target table.
         self.source_panel.columns_loaded.connect(
             self.target_panel.configure_from_source
         )
 
-        # Loading a source table clears rules belonging to the previous table.
         self.source_panel.columns_loaded.connect(
             self.clear_previous_rules
         )
 
-        # Selecting a source column updates datatype-compatible strategies.
         self.source_panel.column_list.itemSelectionChanged.connect(
             self.update_strategy_options
         )
 
-        # Add Rule uses metadata for the selected source column.
         self.rules_panel.add_rule_button.clicked.connect(
             self.add_selected_rule
         )
 
-        # Preview performs read-only validation and transformation.
         self.preview_panel.preview_button.clicked.connect(
             self.run_preview
         )
 
-        # Execute starts the threaded OUT_PLACE anonymization.
         self.execution_panel.execute_button.clicked.connect(
             self.run_execution
         )
 
-        # Process execution summaries and persist history.
         self.execution_panel.summary_ready.connect(
             self.handle_execution_summary
         )
 
-        # Protect the GUI when execution starts/stops.
         self.execution_panel.execution_state_changed.connect(
             self.handle_execution_state
         )
 
-        # Clear / Start Afresh resets the current working session.
         self.clear_action.triggered.connect(
             self.clear_application
         )
 
+        self.about_action.triggered.connect(
+            self.show_about
+        )
+
     def update_strategy_options(self):
         # ------------------------------------------------------------------
-        # SECTION 8: UPDATE DATATYPE-AWARE STRATEGIES
+        # SECTION 10: UPDATE DATATYPE-AWARE STRATEGIES
         # ------------------------------------------------------------------
         column_info = self.source_panel.get_selected_column_info()
 
@@ -181,7 +250,7 @@ class MainWindow(QMainWindow):
 
     def add_selected_rule(self):
         # ------------------------------------------------------------------
-        # SECTION 9: ADD RULE FOR SELECTED SOURCE COLUMN
+        # SECTION 11: ADD RULE FOR SELECTED SOURCE COLUMN
         # ------------------------------------------------------------------
         column_info = self.source_panel.get_selected_column_info()
 
@@ -189,15 +258,19 @@ class MainWindow(QMainWindow):
             column_info
         )
 
-    def clear_previous_rules(self, source_table, column_names):
+    def clear_previous_rules(
+        self,
+        source_table,
+        column_names
+    ):
         # ------------------------------------------------------------------
-        # SECTION 10: CLEAR RULES AFTER SOURCE TABLE CHANGE
+        # SECTION 12: CLEAR RULES AFTER SOURCE TABLE CHANGE
         # ------------------------------------------------------------------
         self.rules_panel.clear_rules()
 
     def run_preview(self):
         # ------------------------------------------------------------------
-        # SECTION 11: COLLECT PREVIEW CONFIGURATION
+        # SECTION 13: COLLECT PREVIEW CONFIGURATION
         # ------------------------------------------------------------------
         connection_config = self.connection_panel.get_connection_config()
         source_config = self.source_panel.get_source_config()
@@ -205,7 +278,7 @@ class MainWindow(QMainWindow):
         target_config = self.target_panel.get_target_config()
 
         # ------------------------------------------------------------------
-        # SECTION 12: RUN PREVIEW
+        # SECTION 14: RUN PREVIEW
         # ------------------------------------------------------------------
         self.preview_panel.run_preview(
             connection_config,
@@ -216,7 +289,7 @@ class MainWindow(QMainWindow):
 
     def run_execution(self):
         # ------------------------------------------------------------------
-        # SECTION 13: COLLECT EXECUTION CONFIGURATION
+        # SECTION 15: COLLECT EXECUTION CONFIGURATION
         # ------------------------------------------------------------------
         connection_config = self.connection_panel.get_connection_config()
         source_config = self.source_panel.get_source_config()
@@ -224,7 +297,7 @@ class MainWindow(QMainWindow):
         target_config = self.target_panel.get_target_config()
 
         # ------------------------------------------------------------------
-        # SECTION 14: START EXECUTION
+        # SECTION 16: START EXECUTION
         # ------------------------------------------------------------------
         self.execution_panel.run_execution(
             connection_config,
@@ -233,14 +306,13 @@ class MainWindow(QMainWindow):
             target_config
         )
 
-    def handle_execution_state(self, running):
+    def handle_execution_state(
+        self,
+        running
+    ):
         # ------------------------------------------------------------------
-        # SECTION 15: PROTECT GUI DURING ACTIVE EXECUTION
+        # SECTION 17: PROTECT GUI DURING ACTIVE EXECUTION
         # ------------------------------------------------------------------
-        # While the worker is running, prevent configuration from changing.
-        #
-        # This avoids the GUI displaying a configuration different from
-        # the configuration currently being processed by ExecutionWorker.
         configuration_enabled = not running
 
         self.connection_panel.setEnabled(
@@ -263,7 +335,6 @@ class MainWindow(QMainWindow):
             configuration_enabled
         )
 
-        # Clear / Start Afresh must also remain unavailable.
         self.clear_action.setEnabled(
             configuration_enabled
         )
@@ -272,28 +343,32 @@ class MainWindow(QMainWindow):
             logger.info(
                 "GUI configuration controls locked during active execution."
             )
+
         else:
             logger.info(
                 "GUI configuration controls unlocked after execution."
             )
 
-    def handle_execution_summary(self, summary):
+    def handle_execution_summary(
+        self,
+        summary
+    ):
         # ------------------------------------------------------------------
-        # SECTION 16: DISPLAY CURRENT EXECUTION SUMMARY
+        # SECTION 18: DISPLAY EXECUTION SUMMARY
         # ------------------------------------------------------------------
         self.summary_panel.display_summary(
             summary
         )
 
         # ------------------------------------------------------------------
-        # SECTION 17: SAVE EXECUTION HISTORY
+        # SECTION 19: SAVE EXECUTION HISTORY
         # ------------------------------------------------------------------
         save_successful = save_execution_summary(
             summary
         )
 
         # ------------------------------------------------------------------
-        # SECTION 18: REFRESH EXECUTION HISTORY
+        # SECTION 20: REFRESH EXECUTION HISTORY
         # ------------------------------------------------------------------
         self.history_panel.refresh_history()
 
@@ -306,12 +381,22 @@ class MainWindow(QMainWindow):
                 "Execution completed, but the history record could not be saved."
             )
 
+    def show_about(self):
+        # ------------------------------------------------------------------
+        # SECTION 21: DISPLAY CUSTOM ABOUT DIALOG
+        # ------------------------------------------------------------------
+        # The custom dialog provides more flexibility than QMessageBox.about()
+        # and allows the company logo to be displayed.
+        about_dialog = AboutDialog(
+            self
+        )
+
+        about_dialog.exec()
+
     def clear_application(self):
         # ------------------------------------------------------------------
-        # SECTION 19: PROTECT ACTIVE EXECUTION FROM RESET
+        # SECTION 22: PROTECT ACTIVE EXECUTION FROM RESET
         # ------------------------------------------------------------------
-        # This check remains even though the menu action is disabled while
-        # execution is active. It provides another safety layer.
         if self.execution_panel.is_execution_running():
             logger.warning(
                 "Clear / Start Afresh request rejected because execution is running."
@@ -327,7 +412,7 @@ class MainWindow(QMainWindow):
             return
 
         # ------------------------------------------------------------------
-        # SECTION 20: CONFIRM APPLICATION RESET
+        # SECTION 23: CONFIRM APPLICATION RESET
         # ------------------------------------------------------------------
         answer = QMessageBox.question(
             self,
@@ -341,7 +426,7 @@ class MainWindow(QMainWindow):
             return
 
         # ------------------------------------------------------------------
-        # SECTION 21: CLEAR CURRENT GUI SESSION
+        # SECTION 24: CLEAR CURRENT GUI SESSION
         # ------------------------------------------------------------------
         self.connection_panel.clear_panel()
         self.source_panel.clear_panel()
@@ -351,19 +436,21 @@ class MainWindow(QMainWindow):
         self.execution_panel.clear_panel()
         self.summary_panel.clear_summary()
 
-        # Execution history is intentionally preserved.
+        # Execution history is deliberately preserved.
         self.history_panel.refresh_history()
 
         logger.info(
-            "Current DataAnonFramework GUI session cleared."
+            "Current %s GUI session cleared.",
+            APP_NAME
         )
 
-    def closeEvent(self, event):
+    def closeEvent(
+        self,
+        event
+    ):
         # ------------------------------------------------------------------
-        # SECTION 22: PROTECT ACTIVE QTHREAD DURING APPLICATION CLOSE
+        # SECTION 25: PROTECT ACTIVE THREAD DURING APPLICATION CLOSE
         # ------------------------------------------------------------------
-        # Never allow MainWindow and its child QThread objects to be
-        # destroyed while anonymization is still running.
         if self.execution_panel.is_execution_running():
             logger.warning(
                 "Application close request rejected because anonymization "
@@ -374,21 +461,19 @@ class MainWindow(QMainWindow):
                 self,
                 "Execution Running",
                 "An anonymization execution is currently running.\n\n"
-                "Please allow the execution to finish before closing "
-                "DataAnonFramework."
+                f"Please allow the execution to finish before closing {APP_NAME}."
             )
 
-            # Ignore the operating-system/window-manager close request.
             event.ignore()
 
             return
 
         # ------------------------------------------------------------------
-        # SECTION 23: ALLOW SAFE APPLICATION CLOSE
+        # SECTION 26: ALLOW SAFE APPLICATION CLOSE
         # ------------------------------------------------------------------
-        # No worker thread is active, therefore the window can close safely.
         logger.info(
-            "DataAnonFramework main window closing."
+            "%s main window closing.",
+            APP_NAME
         )
 
         event.accept()

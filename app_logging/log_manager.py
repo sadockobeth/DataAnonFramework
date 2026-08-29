@@ -3,11 +3,13 @@ Module: log_manager.py
 
 Purpose:
 Provides persistent application logging and execution-history storage
-for DataAnonFramework.
+for the Data Anonymization Engine.
 
 Main responsibilities:
 - Create and manage the application's logs directory.
-- Write technical application events to dataanonframework.log.
+- Write technical application events to a rotating technical log file.
+- Prevent the technical log from growing indefinitely.
+- Keep a limited number of previous technical log files.
 - Save anonymization execution summaries as persistent history records.
 - Load recent execution-history records for display in the GUI.
 - Convert execution datetime values into JSON-compatible text.
@@ -19,7 +21,9 @@ perform anonymization, or create GUI widgets.
 
 import json
 import logging
+
 from collections import deque
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
@@ -27,13 +31,14 @@ from pathlib import Path
 # SECTION 1: DEFINE PROJECT AND LOG LOCATIONS
 # ------------------------------------------------------------------
 # __file__ points to:
+#
 # DataAnonFramework/app_logging/log_manager.py
 #
-# parent.parent therefore points to:
-# DataAnonFramework/
+# parent.parent therefore points to the project root.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# All application log files are stored under:
+# Store all logging-related files under:
+#
 # DataAnonFramework/logs/
 LOG_DIRECTORY = PROJECT_ROOT / "logs"
 
@@ -48,13 +53,43 @@ EXECUTION_HISTORY_FILE = LOG_DIRECTORY / "execution_history.jsonl"
 
 
 # ------------------------------------------------------------------
-# SECTION 2: CONFIGURE APPLICATION LOGGER
+# SECTION 2: DEFINE TECHNICAL LOG ROTATION SETTINGS
 # ------------------------------------------------------------------
-# Create one shared logger for the complete DataAnonFramework application.
-application_logger = logging.getLogger("DataAnonFramework")
+# Maximum size of the active technical log file:
+#
+# 5 * 1024 * 1024 = 5 MB
+MAX_LOG_FILE_SIZE = 5 * 1024 * 1024
 
-# INFO means INFO, WARNING, ERROR, and CRITICAL messages will be recorded.
-application_logger.setLevel(logging.INFO)
+# Keep five previous technical log files.
+#
+# Example:
+#
+# dataanonframework.log
+# dataanonframework.log.1
+# dataanonframework.log.2
+# dataanonframework.log.3
+# dataanonframework.log.4
+# dataanonframework.log.5
+LOG_BACKUP_COUNT = 5
+
+
+# ------------------------------------------------------------------
+# SECTION 3: CONFIGURE APPLICATION LOGGER
+# ------------------------------------------------------------------
+# Create one shared logger for the complete application.
+application_logger = logging.getLogger(
+    "DataAnonymizationEngine"
+)
+
+# INFO means the logger records:
+#
+# INFO
+# WARNING
+# ERROR
+# CRITICAL
+application_logger.setLevel(
+    logging.INFO
+)
 
 # Prevent messages from also being passed to Python's root logger.
 application_logger.propagate = False
@@ -62,36 +97,52 @@ application_logger.propagate = False
 # Avoid creating duplicate file handlers if this module is imported
 # multiple times during the same application session.
 if not application_logger.handlers:
-    file_handler = logging.FileHandler(
+
+    # ------------------------------------------------------------------
+    # SECTION 4: CREATE ROTATING FILE HANDLER
+    # ------------------------------------------------------------------
+    # RotatingFileHandler automatically rotates the active log when
+    # it reaches MAX_LOG_FILE_SIZE.
+    file_handler = RotatingFileHandler(
         APPLICATION_LOG_FILE,
+        maxBytes=MAX_LOG_FILE_SIZE,
+        backupCount=LOG_BACKUP_COUNT,
         encoding="utf-8"
     )
 
-    # Each technical log entry will contain:
+    # Each technical log entry contains:
+    #
     # timestamp | log level | message
     formatter = logging.Formatter(
         "%(asctime)s | %(levelname)s | %(message)s"
     )
 
-    file_handler.setFormatter(formatter)
-    application_logger.addHandler(file_handler)
+    file_handler.setFormatter(
+        formatter
+    )
+
+    application_logger.addHandler(
+        file_handler
+    )
 
 
 def get_logger():
     # ------------------------------------------------------------------
-    # SECTION 3: RETURN SHARED APPLICATION LOGGER
+    # SECTION 5: RETURN SHARED APPLICATION LOGGER
     # ------------------------------------------------------------------
-    # Other DataAnonFramework modules can call get_logger() instead of
-    # creating their own logging configuration.
+    # Other modules call get_logger() instead of creating their own
+    # logging configuration.
     return application_logger
 
 
 def save_execution_summary(summary):
     # ------------------------------------------------------------------
-    # SECTION 4: PREPARE EXECUTION HISTORY RECORD
+    # SECTION 6: PREPARE EXECUTION HISTORY RECORD
     # ------------------------------------------------------------------
-    # Execution summaries contain datetime objects. JSON cannot store
-    # datetime objects directly, therefore convert them into ISO text.
+    # Execution summaries contain datetime objects.
+    #
+    # JSON cannot store datetime objects directly, therefore convert
+    # them into ISO-formatted text.
     history_record = {
         "status": summary["status"],
         "source": summary["source"],
@@ -109,22 +160,31 @@ def save_execution_summary(summary):
 
     try:
         # ------------------------------------------------------------------
-        # SECTION 5: SAVE EXECUTION HISTORY
+        # SECTION 7: SAVE EXECUTION HISTORY
         # ------------------------------------------------------------------
         # JSON Lines stores one complete JSON object on each line.
         #
-        # "a" means append mode, so previous execution records are preserved.
-        with open(EXECUTION_HISTORY_FILE, "a", encoding="utf-8") as history_file:
-            history_file.write(json.dumps(history_record) + "\n")
+        # Append mode preserves all previous execution-history records.
+        with open(
+            EXECUTION_HISTORY_FILE,
+            "a",
+            encoding="utf-8"
+        ) as history_file:
+
+            history_file.write(
+                json.dumps(history_record) + "\n"
+            )
 
         # ------------------------------------------------------------------
-        # SECTION 6: WRITE EXECUTION EVENT TO TECHNICAL LOG
+        # SECTION 8: WRITE EXECUTION EVENT TO TECHNICAL LOG
         # ------------------------------------------------------------------
-        # Store only operational information.
-        # Database usernames, passwords, hostnames, and other connection
-        # credentials are intentionally not written here.
+        # Only operational information is recorded.
+        #
+        # Database credentials and source row values are intentionally
+        # not written to the technical log.
         application_logger.info(
-            "Execution %s | Source=%s | Target=%s | Rows=%s | Batches=%s | Duration=%.2fs",
+            "Execution %s | Source=%s | Target=%s | "
+            "Rows=%s | Batches=%s | Duration=%.2fs",
             summary["status"],
             summary["source"],
             summary["target"],
@@ -137,10 +197,9 @@ def save_execution_summary(summary):
 
     except Exception as error:
         # ------------------------------------------------------------------
-        # SECTION 7: HANDLE HISTORY STORAGE FAILURE
+        # SECTION 9: HANDLE HISTORY STORAGE FAILURE
         # ------------------------------------------------------------------
-        # exception() records the error message and Python traceback in
-        # dataanonframework.log for troubleshooting.
+        # exception() records both the error and Python traceback.
         application_logger.exception(
             "Failed to save execution history: %s",
             error
@@ -151,22 +210,28 @@ def save_execution_summary(summary):
 
 def load_execution_history(limit=50):
     # ------------------------------------------------------------------
-    # SECTION 8: CHECK EXECUTION HISTORY FILE
+    # SECTION 10: CHECK EXECUTION HISTORY FILE
     # ------------------------------------------------------------------
-    # No execution-history file simply means no execution has yet
-    # been recorded.
+    # If no execution-history file exists yet, simply return an empty list.
     if not EXECUTION_HISTORY_FILE.exists():
         return []
 
-    # deque(maxlen=limit) ensures only the most recent records are kept
-    # in memory even if the history file eventually contains many records.
-    recent_records = deque(maxlen=limit)
+    # deque(maxlen=limit) keeps only the most recent requested records
+    # in memory, even if the history file contains many executions.
+    recent_records = deque(
+        maxlen=limit
+    )
 
     try:
         # ------------------------------------------------------------------
-        # SECTION 9: READ EXECUTION HISTORY
+        # SECTION 11: READ EXECUTION HISTORY
         # ------------------------------------------------------------------
-        with open(EXECUTION_HISTORY_FILE, "r", encoding="utf-8") as history_file:
+        with open(
+            EXECUTION_HISTORY_FILE,
+            "r",
+            encoding="utf-8"
+        ) as history_file:
+
             for line in history_file:
                 line = line.strip()
 
@@ -174,19 +239,24 @@ def load_execution_history(limit=50):
                 if not line:
                     continue
 
-                # Convert each JSON line back into a Python dictionary.
-                recent_records.append(json.loads(line))
+                # Convert the JSON line back into a Python dictionary.
+                recent_records.append(
+                    json.loads(line)
+                )
 
         # ------------------------------------------------------------------
-        # SECTION 10: RETURN MOST RECENT EXECUTIONS FIRST
+        # SECTION 12: RETURN MOST RECENT EXECUTIONS FIRST
         # ------------------------------------------------------------------
         # The file is stored oldest -> newest.
-        # The GUI should display newest -> oldest.
-        return list(reversed(recent_records))
+        #
+        # The GUI displays newest -> oldest.
+        return list(
+            reversed(recent_records)
+        )
 
     except Exception as error:
         # ------------------------------------------------------------------
-        # SECTION 11: HANDLE HISTORY READ FAILURE
+        # SECTION 13: HANDLE HISTORY READ FAILURE
         # ------------------------------------------------------------------
         application_logger.exception(
             "Failed to load execution history: %s",

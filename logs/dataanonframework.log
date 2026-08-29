@@ -27,3 +27,94 @@
 2026-08-29 21:03:07,822 | INFO | Current DataAnonFramework GUI session cleared.
 2026-08-29 21:08:43,848 | INFO | DataAnonFramework main window closing.
 2026-08-29 21:08:43,864 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 21:21:42,923 | INFO | DataAnonFramework GUI started.
+2026-08-29 21:22:06,455 | INFO | GUI Oracle connection successful.
+2026-08-29 21:22:19,631 | INFO | GUI Oracle connection successful.
+2026-08-29 21:22:19,633 | INFO | Source metadata loaded successfully | Table=ANON.DA_CUSTOMER | Columns=10
+2026-08-29 21:22:36,133 | INFO | GUI Oracle connection successful.
+2026-08-29 21:22:36,137 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=1 | ExcludedColumns=1
+2026-08-29 21:22:41,415 | INFO | Execution request accepted | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rules=1 | ExcludedColumns=1
+2026-08-29 21:22:43,533 | INFO | GUI Oracle connection successful.
+2026-08-29 21:22:43,607 | WARNING | Target table already exists | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 21:22:45,140 | INFO | User approved replacement of existing target table | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 21:22:45,185 | INFO | Existing target table dropped successfully | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 21:22:45,217 | INFO | Target table recreated successfully | Target=LUGAO.DA_CUSTOMER_ANON | IncludedColumns=9 | ExcludedColumns=1
+2026-08-29 21:22:45,222 | INFO | GUI configuration controls locked during active execution.
+2026-08-29 21:22:45,222 | INFO | Background anonymization execution started | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | BatchSize=1000
+2026-08-29 21:22:47,318 | INFO | GUI Oracle connection successful.
+2026-08-29 21:22:47,331 | INFO | Anonymization transaction committed successfully | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1
+2026-08-29 21:22:47,335 | INFO | Background anonymization execution completed | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.11s
+2026-08-29 21:22:47,338 | INFO | Execution SUCCESS | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.11s
+2026-08-29 21:22:47,346 | INFO | GUI configuration controls unlocked after execution.
+2026-08-29 21:34:33,919 | INFO | DataAnonFramework main window closing.
+2026-08-29 21:34:33,940 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 21:34:43,681 | INFO | DataAnonFramework GUI started.
+2026-08-29 21:44:23,527 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 21:44:23,553 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 21:44:38,721 | INFO | DataAnonFramework GUI started.
+2026-08-29 21:48:40,309 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 21:48:40,351 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 21:48:48,540 | INFO | DataAnonFramework GUI started.
+2026-08-29 21:50:26,663 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 21:50:26,691 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 22:00:05,191 | INFO | DataAnonFramework GUI started.
+2026-08-29 22:06:52,252 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 22:06:52,277 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 22:07:05,600 | INFO | DataAnonFramework GUI started.
+2026-08-29 22:13:03,503 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 22:13:03,545 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 22:26:17,219 | INFO | DataAnonFramework GUI started.
+2026-08-29 22:26:33,053 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 22:26:33,073 | INFO | DataAnonFramework GUI stopped.
+2026-08-29 22:37:18,981 | INFO | Data Anonymization Engine Version 1.0.0 GUI started.
+2026-08-29 22:38:13,161 | INFO | GUI Oracle connection successful.
+2026-08-29 22:38:24,366 | INFO | GUI Oracle connection successful.
+2026-08-29 22:38:24,369 | WARNING | No metadata returned for source table ANON.DA_CUST.
+2026-08-29 22:38:36,226 | INFO | GUI Oracle connection successful.
+2026-08-29 22:38:36,229 | INFO | Source metadata loaded successfully | Table=ANON.DA_CUSTOMER | Columns=10
+2026-08-29 22:39:12,535 | INFO | GUI Oracle connection successful.
+2026-08-29 22:39:12,539 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=1 | ExcludedColumns=1
+2026-08-29 22:39:46,791 | INFO | GUI Oracle connection successful.
+2026-08-29 22:39:46,796 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=3 | ExcludedColumns=1
+2026-08-29 22:40:56,266 | INFO | Execution request accepted | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rules=3 | ExcludedColumns=1
+2026-08-29 22:40:58,382 | INFO | GUI Oracle connection successful.
+2026-08-29 22:40:58,467 | WARNING | Target table already exists | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 22:41:01,396 | INFO | User approved replacement of existing target table | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 22:41:01,418 | INFO | Existing target table dropped successfully | Target=LUGAO.DA_CUSTOMER_ANON
+2026-08-29 22:41:01,448 | INFO | Target table recreated successfully | Target=LUGAO.DA_CUSTOMER_ANON | IncludedColumns=9 | ExcludedColumns=1
+2026-08-29 22:41:01,451 | INFO | GUI configuration controls locked during active execution.
+2026-08-29 22:41:01,451 | INFO | Background anonymization execution started | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | BatchSize=1000
+2026-08-29 22:41:03,560 | INFO | GUI Oracle connection successful.
+2026-08-29 22:41:03,571 | INFO | Anonymization transaction committed successfully | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1
+2026-08-29 22:41:03,575 | INFO | Background anonymization execution completed | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.12s
+2026-08-29 22:41:03,576 | INFO | Execution SUCCESS | Source=ANON.DA_CUSTOMER | Target=LUGAO.DA_CUSTOMER_ANON | Rows=8 | Batches=1 | Duration=2.12s
+2026-08-29 22:41:03,582 | INFO | GUI configuration controls unlocked after execution.
+2026-08-29 22:44:01,945 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 22:44:01,968 | INFO | Data Anonymization Engine Version 1.0.0 GUI stopped.
+2026-08-29 22:44:10,741 | INFO | Data Anonymization Engine Version 1.0.0 GUI started.
+2026-08-29 22:44:36,067 | WARNING | Preview stopped because no tested GUI database connection was available.
+2026-08-29 22:44:39,475 | WARNING | Preview stopped because no tested GUI database connection was available.
+2026-08-29 22:44:43,065 | WARNING | Source metadata loading stopped because source schema was not provided.
+2026-08-29 22:45:41,418 | INFO | GUI Oracle connection successful.
+2026-08-29 22:45:59,958 | INFO | GUI Oracle connection successful.
+2026-08-29 22:45:59,962 | INFO | Source metadata loaded successfully | Table=ANON.DA_CUSTOMER | Columns=10
+2026-08-29 22:46:25,691 | INFO | GUI Oracle connection successful.
+2026-08-29 22:46:25,697 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=1 | ExcludedColumns=1
+2026-08-29 22:46:27,817 | INFO | GUI Oracle connection successful.
+2026-08-29 22:46:27,821 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=1 | ExcludedColumns=1
+2026-08-29 22:50:09,518 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 22:50:09,532 | INFO | Data Anonymization Engine Version 1.0.0 GUI stopped.
+2026-08-29 22:50:27,388 | INFO | Data Anonymization Engine Version 1.0.0 GUI started.
+2026-08-29 22:55:31,376 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 22:55:31,393 | INFO | Data Anonymization Engine Version 1.0.0 GUI stopped.
+2026-08-29 22:55:36,614 | INFO | Data Anonymization Engine Version 1.0.0 GUI started.
+2026-08-29 22:55:57,023 | INFO | GUI Oracle connection successful.
+2026-08-29 22:56:10,145 | INFO | GUI Oracle connection successful.
+2026-08-29 22:56:10,150 | INFO | Source metadata loaded successfully | Table=ANON.DA_CUSTOMER | Columns=10
+2026-08-29 22:56:35,503 | INFO | GUI Oracle connection successful.
+2026-08-29 22:56:35,508 | INFO | Preview generated successfully | Source=ANON.DA_CUSTOMER | Rows=5 | Rules=1 | ExcludedColumns=0
+2026-08-29 22:59:56,996 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 22:59:57,019 | INFO | Data Anonymization Engine Version 1.0.0 GUI stopped.
+2026-08-29 23:01:14,773 | INFO | Data Anonymization Engine Version 1.0.0 GUI started.
+2026-08-29 23:01:55,773 | INFO | Data Anonymization Engine main window closing.
+2026-08-29 23:01:55,788 | INFO | Data Anonymization Engine Version 1.0.0 GUI stopped.

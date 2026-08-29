@@ -2,11 +2,13 @@
 Module: gui_main.py
 
 Purpose:
-Provides the entry point for starting the DataAnonFramework GUI.
+Provides the entry point for starting the Data Aninymization Engine GUI.
 
 Main responsibilities:
+- Read centralized application identity and version information.
 - Create the PySide6 QApplication object.
-- Create the main DataAnonFramework window.
+- Apply the shared application stylesheet.
+- Create the main application window.
 - Center the main window on the user's screen.
 - Display the application window.
 - Start the Qt event loop.
@@ -20,6 +22,8 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
+from app_info import APP_NAME, APP_VERSION
+from gui.app_style import get_application_style
 from gui.main_window import MainWindow
 from app_logging.log_manager import get_logger
 
@@ -28,71 +32,78 @@ def main():
     # ------------------------------------------------------------------
     # SECTION 1: CREATE APPLICATION LOGGER
     # ------------------------------------------------------------------
-    # Retrieve the shared DataAnonFramework logger.
-    #
-    # The logger writes technical application events to:
-    #
-    # DataAnonFramework/logs/dataanonframework.log
     logger = get_logger()
 
-    # Record application startup.
-    logger.info("DataAnonFramework GUI started.")
+    logger.info(
+        "%s Version %s GUI started.",
+        APP_NAME,
+        APP_VERSION
+    )
 
     try:
         # ------------------------------------------------------------------
         # SECTION 2: CREATE QT APPLICATION
         # ------------------------------------------------------------------
-        # QApplication manages the entire GUI application.
+        # QApplication manages the complete GUI application.
         app = QApplication(sys.argv)
 
         # ------------------------------------------------------------------
-        # SECTION 3: CREATE MAIN WINDOW
+        # SECTION 3: SET APPLICATION INFORMATION
         # ------------------------------------------------------------------
-        # MainWindow creates and coordinates all GUI panels.
+        app.setApplicationName(APP_NAME)
+        app.setApplicationVersion(APP_VERSION)
+
+        # ------------------------------------------------------------------
+        # SECTION 4: APPLY SHARED GUI STYLE
+        # ------------------------------------------------------------------
+        # Styling is kept in app_style.py so presentation remains separate
+        # from GUI behavior and business logic.
+        app.setStyleSheet(
+            get_application_style()
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 5: CREATE MAIN WINDOW
+        # ------------------------------------------------------------------
         window = MainWindow()
 
         # ------------------------------------------------------------------
-        # SECTION 4: CENTER MAIN WINDOW
+        # SECTION 6: CENTER MAIN WINDOW
         # ------------------------------------------------------------------
-        # availableGeometry() returns the usable desktop area.
         screen = app.primaryScreen().availableGeometry()
-
-        # frameGeometry() returns the current window geometry.
         window_geometry = window.frameGeometry()
-
-        # Move the center of the application window to the center
-        # of the available desktop area.
         window_geometry.moveCenter(screen.center())
-
-        # Move the actual window to the calculated position.
         window.move(window_geometry.topLeft())
 
         # ------------------------------------------------------------------
-        # SECTION 5: DISPLAY MAIN WINDOW
+        # SECTION 7: DISPLAY MAIN WINDOW
         # ------------------------------------------------------------------
-        # show() makes the DataAnonFramework GUI visible.
         window.show()
 
         # ------------------------------------------------------------------
-        # SECTION 6: START QT EVENT LOOP
+        # SECTION 8: START QT EVENT LOOP
         # ------------------------------------------------------------------
-        # app.exec() keeps the GUI running until the user closes it.
         exit_code = app.exec()
 
         # ------------------------------------------------------------------
-        # SECTION 7: RECORD NORMAL APPLICATION SHUTDOWN
+        # SECTION 9: RECORD NORMAL APPLICATION SHUTDOWN
         # ------------------------------------------------------------------
-        logger.info("DataAnonFramework GUI stopped.")
+        logger.info(
+            "%s Version %s GUI stopped.",
+            APP_NAME,
+            APP_VERSION
+        )
 
         return exit_code
 
     except Exception as error:
         # ------------------------------------------------------------------
-        # SECTION 8: RECORD UNHANDLED STARTUP ERROR
+        # SECTION 10: RECORD UNHANDLED APPLICATION ERROR
         # ------------------------------------------------------------------
-        # exception() records both the error message and Python traceback.
         logger.exception(
-            "DataAnonFramework GUI terminated unexpectedly: %s",
+            "%s Version %s GUI terminated unexpectedly: %s",
+            APP_NAME,
+            APP_VERSION,
             error
         )
 
@@ -102,6 +113,5 @@ def main():
 # ----------------------------------------------------------------------
 # PROGRAM ENTRY POINT
 # ----------------------------------------------------------------------
-# Python calls main() only when gui_main.py is executed directly.
 if __name__ == "__main__":
     sys.exit(main())
