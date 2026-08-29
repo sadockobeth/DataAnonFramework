@@ -6,6 +6,7 @@ Assembles and coordinates the main Data Anonymization Engine GUI window.
 
 Main responsibilities:
 - Create and display the major GUI panels.
+- Organize the application into clearly numbered workflow sections.
 - Display the centralized application name and version.
 - Provide File and Help application menus.
 - Display application information through a custom About dialog.
@@ -33,6 +34,8 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QScrollArea,
+    QGroupBox,
+    QFrame,
     QMessageBox
 )
 
@@ -69,6 +72,7 @@ class MainWindow(QMainWindow):
             f"{APP_NAME} - Version {APP_VERSION}"
         )
 
+        # Keep the established application window size.
         self.resize(900, 800)
 
         # ------------------------------------------------------------------
@@ -122,6 +126,10 @@ class MainWindow(QMainWindow):
         # ------------------------------------------------------------------
         # SECTION 6: CREATE GUI PANELS
         # ------------------------------------------------------------------
+        # These are the existing functional panels.
+        #
+        # Their internal behavior remains unchanged. MainWindow only
+        # coordinates them and controls how they are presented.
         self.connection_panel = DatabaseConnectionPanel()
         self.source_panel = SourceTablePanel()
         self.rules_panel = AnonymizationRulesPanel()
@@ -132,45 +140,108 @@ class MainWindow(QMainWindow):
         self.history_panel = ExecutionHistoryPanel()
 
         # ------------------------------------------------------------------
-        # SECTION 7: CREATE MAIN WINDOW LAYOUT
+        # SECTION 7: CREATE NUMBERED WORKFLOW SECTIONS
         # ------------------------------------------------------------------
-        main_layout = QVBoxLayout()
-
-        main_layout.addWidget(
+        # Each existing panel is wrapped inside a QGroupBox.
+        #
+        # This gives the application a clear visual workflow while leaving
+        # the actual panel functionality unchanged.
+        self.connection_section = self.create_section_group(
+            "1. Database Connection",
             self.connection_panel
         )
 
-        main_layout.addWidget(
+        self.source_section = self.create_section_group(
+            "2. Source Data",
             self.source_panel
         )
 
-        main_layout.addWidget(
+        self.rules_section = self.create_section_group(
+            "3. Anonymization Rules",
             self.rules_panel
         )
 
-        main_layout.addWidget(
+        self.target_section = self.create_section_group(
+            "4. Target Data",
             self.target_panel
         )
 
-        main_layout.addWidget(
+        self.preview_section = self.create_section_group(
+            "5. Validate and Preview",
             self.preview_panel
         )
 
-        main_layout.addWidget(
+        self.execution_section = self.create_section_group(
+            "6. Execute Anonymization",
             self.execution_panel
         )
 
-        main_layout.addWidget(
+        self.summary_section = self.create_section_group(
+            "7. Execution Summary",
             self.summary_panel
         )
 
-        main_layout.addWidget(
+        self.history_section = self.create_section_group(
+            "8. Execution History",
             self.history_panel
         )
 
         # ------------------------------------------------------------------
-        # SECTION 8: CREATE SCROLLABLE CENTRAL AREA
+        # SECTION 8: CREATE MAIN WINDOW LAYOUT
         # ------------------------------------------------------------------
+        # Arrange the workflow sections vertically in the same order that
+        # the user follows when preparing and running anonymization.
+        main_layout = QVBoxLayout()
+
+        # Keep spacing compact but visually separated.
+        main_layout.setContentsMargins(
+            12,
+            8,
+            12,
+            12
+        )
+
+        main_layout.setSpacing(
+            8
+        )
+
+        main_layout.addWidget(
+            self.connection_section
+        )
+
+        main_layout.addWidget(
+            self.source_section
+        )
+
+        main_layout.addWidget(
+            self.rules_section
+        )
+
+        main_layout.addWidget(
+            self.target_section
+        )
+
+        main_layout.addWidget(
+            self.preview_section
+        )
+
+        main_layout.addWidget(
+            self.execution_section
+        )
+
+        main_layout.addWidget(
+            self.summary_section
+        )
+
+        main_layout.addWidget(
+            self.history_section
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 9: CREATE SCROLLABLE CENTRAL AREA
+        # ------------------------------------------------------------------
+        # The application retains the normal 900 x 800 window while the
+        # complete workflow remains accessible through vertical scrolling.
         content_widget = QWidget()
 
         content_widget.setLayout(
@@ -183,6 +254,12 @@ class MainWindow(QMainWindow):
             True
         )
 
+        # Remove the default heavy scroll-area border because the numbered
+        # group boxes already provide the visual section boundaries.
+        scroll_area.setFrameShape(
+            QFrame.Shape.NoFrame
+        )
+
         scroll_area.setWidget(
             content_widget
         )
@@ -192,55 +269,110 @@ class MainWindow(QMainWindow):
         )
 
         # ------------------------------------------------------------------
-        # SECTION 9: CONNECT GUI PANELS
+        # SECTION 10: CONNECT GUI PANELS
         # ------------------------------------------------------------------
+        # A successfully tested database connection becomes available
+        # to the source-table panel.
         self.connection_panel.connection_ready.connect(
             self.source_panel.set_connection_config
         )
 
+        # Loaded source metadata configures the target-table panel.
         self.source_panel.columns_loaded.connect(
             self.target_panel.configure_from_source
         )
 
+        # Changing source table invalidates previous anonymization rules.
         self.source_panel.columns_loaded.connect(
             self.clear_previous_rules
         )
 
+        # Selecting a source column updates allowed anonymization methods
+        # according to the Oracle datatype.
         self.source_panel.column_list.itemSelectionChanged.connect(
             self.update_strategy_options
         )
 
+        # Add the selected anonymization rule.
         self.rules_panel.add_rule_button.clicked.connect(
             self.add_selected_rule
         )
 
+        # Validate configuration and display sample anonymization results.
         self.preview_panel.preview_button.clicked.connect(
             self.run_preview
         )
 
+        # Start full anonymization execution.
         self.execution_panel.execute_button.clicked.connect(
             self.run_execution
         )
 
+        # Receive completed execution summary.
         self.execution_panel.summary_ready.connect(
             self.handle_execution_summary
         )
 
+        # Lock or unlock configuration controls while execution runs.
         self.execution_panel.execution_state_changed.connect(
             self.handle_execution_state
         )
 
+        # File menu actions.
         self.clear_action.triggered.connect(
             self.clear_application
         )
 
+        # Help menu actions.
         self.about_action.triggered.connect(
             self.show_about
         )
 
+    def create_section_group(
+        self,
+        title,
+        panel
+    ):
+        # ------------------------------------------------------------------
+        # SECTION 11: CREATE WORKFLOW SECTION
+        # ------------------------------------------------------------------
+        # Wrap an existing functional panel inside a clearly labelled
+        # QGroupBox.
+        #
+        # The panel itself remains unchanged. This method affects only
+        # presentation and workflow organization.
+        group_box = QGroupBox(
+            title
+        )
+
+        group_layout = QVBoxLayout()
+
+        # Keep enough internal spacing for the section to remain clean
+        # without wasting excessive screen space.
+        group_layout.setContentsMargins(
+            10,
+            10,
+            10,
+            10
+        )
+
+        group_layout.setSpacing(
+            4
+        )
+
+        group_layout.addWidget(
+            panel
+        )
+
+        group_box.setLayout(
+            group_layout
+        )
+
+        return group_box
+
     def update_strategy_options(self):
         # ------------------------------------------------------------------
-        # SECTION 10: UPDATE DATATYPE-AWARE STRATEGIES
+        # SECTION 12: UPDATE DATATYPE-AWARE STRATEGIES
         # ------------------------------------------------------------------
         column_info = self.source_panel.get_selected_column_info()
 
@@ -250,7 +382,7 @@ class MainWindow(QMainWindow):
 
     def add_selected_rule(self):
         # ------------------------------------------------------------------
-        # SECTION 11: ADD RULE FOR SELECTED SOURCE COLUMN
+        # SECTION 13: ADD RULE FOR SELECTED SOURCE COLUMN
         # ------------------------------------------------------------------
         column_info = self.source_panel.get_selected_column_info()
 
@@ -264,13 +396,13 @@ class MainWindow(QMainWindow):
         column_names
     ):
         # ------------------------------------------------------------------
-        # SECTION 12: CLEAR RULES AFTER SOURCE TABLE CHANGE
+        # SECTION 14: CLEAR RULES AFTER SOURCE TABLE CHANGE
         # ------------------------------------------------------------------
         self.rules_panel.clear_rules()
 
     def run_preview(self):
         # ------------------------------------------------------------------
-        # SECTION 13: COLLECT PREVIEW CONFIGURATION
+        # SECTION 15: COLLECT PREVIEW CONFIGURATION
         # ------------------------------------------------------------------
         connection_config = self.connection_panel.get_connection_config()
         source_config = self.source_panel.get_source_config()
@@ -278,7 +410,7 @@ class MainWindow(QMainWindow):
         target_config = self.target_panel.get_target_config()
 
         # ------------------------------------------------------------------
-        # SECTION 14: RUN PREVIEW
+        # SECTION 16: RUN PREVIEW
         # ------------------------------------------------------------------
         self.preview_panel.run_preview(
             connection_config,
@@ -289,7 +421,7 @@ class MainWindow(QMainWindow):
 
     def run_execution(self):
         # ------------------------------------------------------------------
-        # SECTION 15: COLLECT EXECUTION CONFIGURATION
+        # SECTION 17: COLLECT EXECUTION CONFIGURATION
         # ------------------------------------------------------------------
         connection_config = self.connection_panel.get_connection_config()
         source_config = self.source_panel.get_source_config()
@@ -297,7 +429,7 @@ class MainWindow(QMainWindow):
         target_config = self.target_panel.get_target_config()
 
         # ------------------------------------------------------------------
-        # SECTION 16: START EXECUTION
+        # SECTION 18: START EXECUTION
         # ------------------------------------------------------------------
         self.execution_panel.run_execution(
             connection_config,
@@ -311,8 +443,12 @@ class MainWindow(QMainWindow):
         running
     ):
         # ------------------------------------------------------------------
-        # SECTION 17: PROTECT GUI DURING ACTIVE EXECUTION
+        # SECTION 19: PROTECT GUI DURING ACTIVE EXECUTION
         # ------------------------------------------------------------------
+        # Configuration controls are disabled while anonymization executes.
+        #
+        # ExecutionPanel itself remains enabled because its Cancel button
+        # must continue to work during execution.
         configuration_enabled = not running
 
         self.connection_panel.setEnabled(
@@ -354,21 +490,21 @@ class MainWindow(QMainWindow):
         summary
     ):
         # ------------------------------------------------------------------
-        # SECTION 18: DISPLAY EXECUTION SUMMARY
+        # SECTION 20: DISPLAY EXECUTION SUMMARY
         # ------------------------------------------------------------------
         self.summary_panel.display_summary(
             summary
         )
 
         # ------------------------------------------------------------------
-        # SECTION 19: SAVE EXECUTION HISTORY
+        # SECTION 21: SAVE EXECUTION HISTORY
         # ------------------------------------------------------------------
         save_successful = save_execution_summary(
             summary
         )
 
         # ------------------------------------------------------------------
-        # SECTION 20: REFRESH EXECUTION HISTORY
+        # SECTION 22: REFRESH EXECUTION HISTORY
         # ------------------------------------------------------------------
         self.history_panel.refresh_history()
 
@@ -383,7 +519,7 @@ class MainWindow(QMainWindow):
 
     def show_about(self):
         # ------------------------------------------------------------------
-        # SECTION 21: DISPLAY CUSTOM ABOUT DIALOG
+        # SECTION 23: DISPLAY CUSTOM ABOUT DIALOG
         # ------------------------------------------------------------------
         # The custom dialog provides more flexibility than QMessageBox.about()
         # and allows the company logo to be displayed.
@@ -395,7 +531,7 @@ class MainWindow(QMainWindow):
 
     def clear_application(self):
         # ------------------------------------------------------------------
-        # SECTION 22: PROTECT ACTIVE EXECUTION FROM RESET
+        # SECTION 24: PROTECT ACTIVE EXECUTION FROM RESET
         # ------------------------------------------------------------------
         if self.execution_panel.is_execution_running():
             logger.warning(
@@ -412,7 +548,7 @@ class MainWindow(QMainWindow):
             return
 
         # ------------------------------------------------------------------
-        # SECTION 23: CONFIRM APPLICATION RESET
+        # SECTION 25: CONFIRM APPLICATION RESET
         # ------------------------------------------------------------------
         answer = QMessageBox.question(
             self,
@@ -426,7 +562,7 @@ class MainWindow(QMainWindow):
             return
 
         # ------------------------------------------------------------------
-        # SECTION 24: CLEAR CURRENT GUI SESSION
+        # SECTION 26: CLEAR CURRENT GUI SESSION
         # ------------------------------------------------------------------
         self.connection_panel.clear_panel()
         self.source_panel.clear_panel()
@@ -449,7 +585,7 @@ class MainWindow(QMainWindow):
         event
     ):
         # ------------------------------------------------------------------
-        # SECTION 25: PROTECT ACTIVE THREAD DURING APPLICATION CLOSE
+        # SECTION 27: PROTECT ACTIVE THREAD DURING APPLICATION CLOSE
         # ------------------------------------------------------------------
         if self.execution_panel.is_execution_running():
             logger.warning(
@@ -469,7 +605,7 @@ class MainWindow(QMainWindow):
             return
 
         # ------------------------------------------------------------------
-        # SECTION 26: ALLOW SAFE APPLICATION CLOSE
+        # SECTION 28: ALLOW SAFE APPLICATION CLOSE
         # ------------------------------------------------------------------
         logger.info(
             "%s main window closing.",
