@@ -3,8 +3,16 @@
   <component name="ChangeListManager">
     <list default="true" id="58590944-972c-4306-8954-d92446bb7b06" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/database_connection_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/database_connection_panel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/anonymization_rules_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/anonymization_rules_panel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/execution_history_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/execution_history_panel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/execution_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/execution_panel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/execution_summary_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/execution_summary_panel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/execution_worker.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/execution_worker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/target_table_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/target_table_panel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/validation_preview_panel.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/validation_preview_panel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/logs/dataanonframework.log" beforeDir="false" afterPath="$PROJECT_DIR$/logs/dataanonframework.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/logs/execution_history.jsonl" beforeDir="false" afterPath="$PROJECT_DIR$/logs/execution_history.jsonl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reporting/execution_summary.py" beforeDir="false" afterPath="$PROJECT_DIR$/reporting/execution_summary.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

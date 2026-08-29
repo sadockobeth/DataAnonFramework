@@ -2,31 +2,36 @@
 Module: execution_history_panel.py
 
 Purpose:
-Displays recent anonymization execution history in the DataAnonFramework GUI.
+Displays recent anonymization execution history in the GUI.
 
 Main responsibilities:
-- Load persistent execution records from app_logging/log_manager.py.
-- Display recent execution status, source, target, row count, start time, and duration.
-- Allow the user to refresh the execution-history display manually.
-- Keep historical execution information separate from the current execution summary.
+- Load recent execution summaries from persistent execution history.
+- Display SUCCESS, FAILED, and CANCELLED executions.
+- Display source table, target table, processed rows, start time, and duration.
+- Show the most recent executions first.
+- Allow execution history to be refreshed manually.
+- Report history-loading errors clearly.
+- Keep execution history separate from the current application session.
 
-This module does not execute anonymization, access Oracle, store
-database credentials, or write execution-history files directly.
+This module does not execute anonymization, access Oracle, save execution
+history, delete history records, or modify execution summaries.
 """
 
-from datetime import datetime
-
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QPushButton,
     QLabel,
     QTableWidget,
     QTableWidgetItem,
+    QHeaderView,
     QAbstractItemView
 )
 
 from app_logging.log_manager import load_execution_history
+from reporting.execution_summary import format_duration
 
 
 class ExecutionHistoryPanel(QWidget):
@@ -35,14 +40,27 @@ class ExecutionHistoryPanel(QWidget):
         super().__init__()
 
         # ------------------------------------------------------------------
-        # SECTION 1: CREATE EXECUTION HISTORY TABLE
+        # SECTION 1: CREATE HISTORY DESCRIPTION
         # ------------------------------------------------------------------
-        # QTableWidget displays one anonymization execution per row.
+        self.description_label = QLabel(
+            "Review recent anonymization executions recorded by the application."
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 2: CREATE REFRESH BUTTON
+        # ------------------------------------------------------------------
+        self.refresh_button = QPushButton(
+            "Refresh Execution History"
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 3: CREATE EXECUTION HISTORY TABLE
+        # ------------------------------------------------------------------
         self.history_table = QTableWidget()
 
-        # Six columns provide the most useful summary information
-        # without making the table unnecessarily wide.
-        self.history_table.setColumnCount(6)
+        self.history_table.setColumnCount(
+            6
+        )
 
         self.history_table.setHorizontalHeaderLabels([
             "Status",
@@ -53,142 +71,371 @@ class ExecutionHistoryPanel(QWidget):
             "Duration"
         ])
 
-        # Provide enough vertical space to display several execution records.
-        self.history_table.setMinimumHeight(200)
-
-        # Prevent direct editing because execution history is read-only.
+        # History is informational only.
         self.history_table.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
         )
 
-        # Select complete rows instead of individual cells.
+        # Selecting a row is clearer than selecting individual cells.
         self.history_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
         )
 
-        # ------------------------------------------------------------------
-        # SECTION 2: CREATE REFRESH BUTTON
-        # ------------------------------------------------------------------
-        # Allows execution history to be reloaded manually from disk.
-        self.refresh_button = QPushButton("Refresh Execution History")
+        self.history_table.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+
+        self.history_table.setAlternatingRowColors(
+            True
+        )
+
+        # Row numbers are not useful for execution history.
+        self.history_table.verticalHeader().setVisible(
+            False
+        )
+
+        self.history_table.setMinimumHeight(
+            220
+        )
 
         # ------------------------------------------------------------------
-        # SECTION 3: CREATE STATUS LABEL
+        # SECTION 4: CONFIGURE TABLE COLUMN WIDTHS
         # ------------------------------------------------------------------
-        # Displays the number of records loaded or any history-related message.
-        self.status_label = QLabel("Execution history not yet loaded.")
+        header = self.history_table.horizontalHeader()
+
+        header.setSectionResizeMode(
+            0,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+
+        header.setSectionResizeMode(
+            1,
+            QHeaderView.ResizeMode.Stretch
+        )
+
+        header.setSectionResizeMode(
+            2,
+            QHeaderView.ResizeMode.Stretch
+        )
+
+        header.setSectionResizeMode(
+            3,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+
+        header.setSectionResizeMode(
+            4,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+
+        header.setSectionResizeMode(
+            5,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
 
         # ------------------------------------------------------------------
-        # SECTION 4: CREATE PANEL LAYOUT
+        # SECTION 5: CREATE STATUS LABEL
         # ------------------------------------------------------------------
-        # QVBoxLayout places the heading, history table, refresh button,
-        # and status message vertically.
+        self.status_label = QLabel(
+            "Execution history has not been loaded."
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 6: CREATE TOP ACTION ROW
+        # ------------------------------------------------------------------
+        action_layout = QHBoxLayout()
+
+        action_layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0
+        )
+
+        action_layout.setSpacing(
+            8
+        )
+
+        action_layout.addWidget(
+            self.description_label
+        )
+
+        action_layout.addStretch()
+
+        action_layout.addWidget(
+            self.refresh_button
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 7: CREATE PANEL LAYOUT
+        # ------------------------------------------------------------------
         layout = QVBoxLayout()
 
-        layout.addWidget(QLabel("Execution History:"))
-        layout.addWidget(self.history_table)
-        layout.addWidget(self.refresh_button)
-        layout.addWidget(self.status_label)
+        # MainWindow's numbered QGroupBox already provides outer spacing.
+        layout.setContentsMargins(
+            0,
+            0,
+            0,
+            0
+        )
 
-        self.setLayout(layout)
+        layout.setSpacing(
+            6
+        )
+
+        layout.addLayout(
+            action_layout
+        )
+
+        layout.addWidget(
+            self.history_table
+        )
+
+        layout.addWidget(
+            self.status_label
+        )
+
+        self.setLayout(
+            layout
+        )
 
         # ------------------------------------------------------------------
-        # SECTION 5: CONNECT GUI EVENTS
+        # SECTION 8: CONNECT GUI EVENTS
         # ------------------------------------------------------------------
-        # Reload execution history whenever the user clicks Refresh.
-        self.refresh_button.clicked.connect(self.refresh_history)
+        self.refresh_button.clicked.connect(
+            self.refresh_history
+        )
 
-        # Load existing execution history when this panel is created.
+        # ------------------------------------------------------------------
+        # SECTION 9: LOAD HISTORY WHEN PANEL IS CREATED
+        # ------------------------------------------------------------------
         self.refresh_history()
 
     def refresh_history(self):
         # ------------------------------------------------------------------
-        # SECTION 6: LOAD EXECUTION HISTORY
+        # SECTION 10: PREPARE HISTORY REFRESH
         # ------------------------------------------------------------------
-        # Retrieve the most recent execution records from the persistent
-        # execution_history.jsonl file.
-        history = load_execution_history(limit=50)
+        self.history_table.setRowCount(
+            0
+        )
 
-        # Remove previous table contents before displaying refreshed history.
-        self.history_table.clearContents()
-        self.history_table.setRowCount(len(history))
+        self.status_label.setStyleSheet("")
 
-        # ------------------------------------------------------------------
-        # SECTION 7: DISPLAY EXECUTION HISTORY
-        # ------------------------------------------------------------------
-        # Each execution record becomes one row in the GUI table.
-        for row_number, record in enumerate(history):
+        self.status_label.setText(
+            "Loading execution history..."
+        )
 
-            # Convert the stored ISO timestamp back into a datetime object.
-            started_at = datetime.fromisoformat(record["started_at"])
-
-            # Convert execution duration into HH:MM:SS format.
-            duration = self.format_duration(record["duration_seconds"])
-
-            self.history_table.setItem(
-                row_number,
-                0,
-                QTableWidgetItem(record["status"])
+        try:
+            # ------------------------------------------------------------------
+            # SECTION 11: LOAD RECENT EXECUTION HISTORY
+            # ------------------------------------------------------------------
+            # Keep the GUI focused on recent executions rather than loading
+            # an unlimited number of historical records.
+            history = load_execution_history(
+                limit=50
             )
 
-            self.history_table.setItem(
-                row_number,
-                1,
-                QTableWidgetItem(record["source"])
-            )
+            # ------------------------------------------------------------------
+            # SECTION 12: HANDLE EMPTY HISTORY
+            # ------------------------------------------------------------------
+            if not history:
+                self.status_label.setStyleSheet("")
 
-            self.history_table.setItem(
-                row_number,
-                2,
-                QTableWidgetItem(record["target"])
-            )
-
-            self.history_table.setItem(
-                row_number,
-                3,
-                QTableWidgetItem(f'{record["rows_processed"]:,}')
-            )
-
-            self.history_table.setItem(
-                row_number,
-                4,
-                QTableWidgetItem(
-                    started_at.strftime("%d-%b-%Y %H:%M:%S")
+                self.status_label.setText(
+                    "No execution history is available."
                 )
+
+                return
+
+            # ------------------------------------------------------------------
+            # SECTION 13: CONFIGURE TABLE ROWS
+            # ------------------------------------------------------------------
+            self.history_table.setRowCount(
+                len(history)
             )
 
-            self.history_table.setItem(
-                row_number,
-                5,
-                QTableWidgetItem(duration)
-            )
+            # ------------------------------------------------------------------
+            # SECTION 14: DISPLAY HISTORY RECORDS
+            # ------------------------------------------------------------------
+            # load_execution_history() already returns newest records first.
+            for row, summary in enumerate(history):
 
-        # Resize columns according to their current contents.
-        self.history_table.resizeColumnsToContents()
+                status = str(
+                    summary.get(
+                        "status",
+                        "UNKNOWN"
+                    )
+                ).upper()
 
-        # ------------------------------------------------------------------
-        # SECTION 8: UPDATE HISTORY STATUS
-        # ------------------------------------------------------------------
-        if history:
+                source = str(
+                    summary.get(
+                        "source",
+                        ""
+                    )
+                )
+
+                target = str(
+                    summary.get(
+                        "target",
+                        ""
+                    )
+                )
+
+                rows_processed = summary.get(
+                    "rows_processed",
+                    0
+                )
+
+                started_at = self.format_started_at(
+                    summary.get(
+                        "started_at"
+                    )
+                )
+
+                duration = format_duration(
+                    summary.get(
+                        "duration_seconds"
+                    )
+                )
+
+                # ----------------------------------------------------------
+                # STATUS
+                # ----------------------------------------------------------
+                status_item = QTableWidgetItem(
+                    status
+                )
+
+                # ----------------------------------------------------------
+                # SOURCE
+                # ----------------------------------------------------------
+                source_item = QTableWidgetItem(
+                    source
+                )
+
+                # ----------------------------------------------------------
+                # TARGET
+                # ----------------------------------------------------------
+                target_item = QTableWidgetItem(
+                    target
+                )
+
+                # ----------------------------------------------------------
+                # ROWS
+                # ----------------------------------------------------------
+                try:
+                    rows_text = f"{int(rows_processed):,}"
+                except (TypeError, ValueError):
+                    rows_text = str(
+                        rows_processed
+                    )
+
+                rows_item = QTableWidgetItem(
+                    rows_text
+                )
+
+                rows_item.setTextAlignment(
+                    Qt.AlignmentFlag.AlignRight |
+                    Qt.AlignmentFlag.AlignVCenter
+                )
+
+                # ----------------------------------------------------------
+                # STARTED
+                # ----------------------------------------------------------
+                started_item = QTableWidgetItem(
+                    started_at
+                )
+
+                # ----------------------------------------------------------
+                # DURATION
+                # ----------------------------------------------------------
+                duration_item = QTableWidgetItem(
+                    duration
+                )
+
+                # ----------------------------------------------------------
+                # ADD VALUES TO TABLE
+                # ----------------------------------------------------------
+                self.history_table.setItem(
+                    row,
+                    0,
+                    status_item
+                )
+
+                self.history_table.setItem(
+                    row,
+                    1,
+                    source_item
+                )
+
+                self.history_table.setItem(
+                    row,
+                    2,
+                    target_item
+                )
+
+                self.history_table.setItem(
+                    row,
+                    3,
+                    rows_item
+                )
+
+                self.history_table.setItem(
+                    row,
+                    4,
+                    started_item
+                )
+
+                self.history_table.setItem(
+                    row,
+                    5,
+                    duration_item
+                )
+
+            # ------------------------------------------------------------------
+            # SECTION 15: REPORT SUCCESS
+            # ------------------------------------------------------------------
             self.status_label.setStyleSheet("")
+
             self.status_label.setText(
-                f"{len(history)} execution history record(s) loaded."
-            )
-        else:
-            self.status_label.setStyleSheet("")
-            self.status_label.setText(
-                "No execution history recorded yet."
+                f"Showing {len(history)} most recent execution record(s)."
             )
 
-    def format_duration(self, duration_seconds):
-        # ------------------------------------------------------------------
-        # SECTION 9: FORMAT EXECUTION DURATION
-        # ------------------------------------------------------------------
-        # Convert total execution seconds into HH:MM:SS.
-        total_seconds = int(duration_seconds)
+        except Exception as error:
+            # ------------------------------------------------------------------
+            # SECTION 16: HANDLE HISTORY-LOADING FAILURE
+            # ------------------------------------------------------------------
+            self.history_table.setRowCount(
+                0
+            )
 
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
+            self.status_label.setStyleSheet(
+                "color: red; font-weight: bold;"
+            )
 
-        return f"{hours:02}:{minutes:02}:{seconds:02}"
+            self.status_label.setText(
+                f"Unable to load execution history: {error}"
+            )
+
+    def format_started_at(
+        self,
+        started_at
+    ):
+        # ------------------------------------------------------------------
+        # SECTION 17: FORMAT EXECUTION START TIME
+        # ------------------------------------------------------------------
+        if not started_at:
+            return "N/A"
+
+        # Execution summaries currently use ISO format:
+        #
+        # 2026-08-30T21:30:20
+        #
+        # Displaying a space instead of T is easier for business users:
+        #
+        # 2026-08-30 21:30:20
+        return str(
+            started_at
+        ).replace(
+            "T",
+            " "
+        )

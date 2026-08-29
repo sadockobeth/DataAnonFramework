@@ -2,41 +2,36 @@
 Module: execution_panel.py
 
 Purpose:
-Manages OUT_PLACE anonymization execution from the GUI while keeping
-long-running row processing outside the main GUI thread.
+Controls anonymization execution from the GUI.
 
 Main responsibilities:
-- Use the successfully tested GUI database connection configuration.
-- Validate the complete anonymization configuration.
-- Create the OUT_PLACE target table.
-- Ask for confirmation before replacing an existing target table.
-- Create and manage QThread and ExecutionWorker.
-- Display execution progress using a QProgressBar and status messages.
-- Prevent duplicate execution while processing is already running.
-- Allow the user to request safe cooperative cancellation.
-- Receive successful, failed, and cancelled worker results.
-- Notify MainWindow when execution starts and stops.
-- Build and publish execution summaries.
-- Record important execution events in the technical log.
-- Clear execution status only when no worker is active.
+- Validate execution configuration.
+- Prepare the OUT_PLACE target table.
+- Handle an already-existing target table through user confirmation.
+- Start ExecutionWorker in a background QThread.
+- Display batch and row processing progress.
+- Allow safe cooperative execution cancellation.
+- Receive successful, cancelled, and failed execution results.
+- Build and emit execution summaries.
+- Notify MainWindow when execution starts and finishes.
+- Protect the GUI from starting multiple simultaneous executions.
+- Clear execution status when starting a new session.
 
-Heavy row reading, transformation, batch insertion, commit, rollback,
-and cancellation handling are performed by execution_worker.py.
-
-This module does not forcibly terminate worker threads, log database
-credentials, or log source row values.
+This module does not transform source rows or perform batch INSERT
+operations directly. Those operations are handled by ExecutionWorker.
 """
 
 from oracledb import DatabaseError
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import Signal, QThread
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QPushButton,
     QLabel,
-    QMessageBox,
-    QProgressBar
+    QProgressBar,
+    QMessageBox
 )
 
 from database.oracle_connection import connect_to_oracle
@@ -56,97 +51,91 @@ logger = get_logger()
 class ExecutionPanel(QWidget):
 
     # ------------------------------------------------------------------
-    # SIGNAL: EXECUTION SUMMARY READY
+    # SECTION 2: PANEL SIGNALS
     # ------------------------------------------------------------------
+    # summary_ready:
+    #     sends completed execution summary to MainWindow.
+    #
+    # execution_state_changed:
+    #     True  -> execution started
+    #     False -> execution finished
     summary_ready = Signal(object)
-
-    # ------------------------------------------------------------------
-    # SIGNAL: EXECUTION STATE CHANGED
-    # ------------------------------------------------------------------
     execution_state_changed = Signal(bool)
 
     def __init__(self):
         super().__init__()
 
         # ------------------------------------------------------------------
-        # SECTION 2: INITIALIZE THREAD OBJECTS
+        # SECTION 3: CREATE EXECUTION BUTTONS
         # ------------------------------------------------------------------
-        self.thread = None
-        self.worker = None
+        self.execute_button = QPushButton("Execute Anonymization")
+        self.execute_button.setObjectName("primaryButton")
 
-        self.current_source_config = None
-        self.current_rules = None
-        self.current_target_config = None
-
-        # ------------------------------------------------------------------
-        # SECTION 3: CREATE EXECUTION BUTTON
-        # ------------------------------------------------------------------
-        self.execute_button = QPushButton(
-            "Execute Anonymization"
-        )
-
-        # ------------------------------------------------------------------
-        # SECTION 4: CREATE CANCEL BUTTON
-        # ------------------------------------------------------------------
-        # Cancellation is available only while a worker is running.
-        self.cancel_button = QPushButton(
-            "Cancel Execution"
-        )
-
+        self.cancel_button = QPushButton("Cancel Execution")
         self.cancel_button.setEnabled(False)
 
         # ------------------------------------------------------------------
-        # SECTION 5: CREATE PROGRESS BAR
+        # SECTION 4: CREATE PROGRESS BAR
         # ------------------------------------------------------------------
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
 
         # ------------------------------------------------------------------
-        # SECTION 6: CREATE STATUS LABEL
+        # SECTION 5: CREATE STATUS LABEL
         # ------------------------------------------------------------------
-        self.status_label = QLabel(
-            "Execution not yet started."
-        )
+        self.status_label = QLabel("Ready to execute anonymization.")
 
         # ------------------------------------------------------------------
-        # SECTION 7: CREATE PANEL LAYOUT
+        # SECTION 6: STORE THREAD AND WORKER REFERENCES
+        # ------------------------------------------------------------------
+        self.thread = None
+        self.worker = None
+
+        # Current configuration is retained only while the execution is
+        # active so the final execution summary can be constructed.
+        self.current_source_config = None
+        self.current_rules = None
+        self.current_target_config = None
+
+        # ------------------------------------------------------------------
+        # SECTION 7: CREATE ACTION ROW
+        # ------------------------------------------------------------------
+        action_layout = QHBoxLayout()
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.setSpacing(8)
+
+        action_layout.addStretch()
+        action_layout.addWidget(self.cancel_button)
+        action_layout.addWidget(self.execute_button)
+
+        # ------------------------------------------------------------------
+        # SECTION 8: CREATE PANEL LAYOUT
         # ------------------------------------------------------------------
         layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
 
         layout.addWidget(
-            self.execute_button
+            QLabel(
+                "Run the configured anonymization process and monitor "
+                "its progress."
+            )
         )
 
-        layout.addWidget(
-            self.cancel_button
-        )
-
-        layout.addWidget(
-            self.progress_bar
-        )
-
-        layout.addWidget(
-            self.status_label
-        )
+        layout.addWidget(QLabel("Execution Progress"))
+        layout.addWidget(self.progress_bar)
+        layout.addWidget(self.status_label)
+        layout.addLayout(action_layout)
 
         self.setLayout(layout)
 
         # ------------------------------------------------------------------
-        # SECTION 8: CONNECT CANCEL BUTTON
+        # SECTION 9: CONNECT INTERNAL GUI EVENTS
         # ------------------------------------------------------------------
-        self.cancel_button.clicked.connect(
-            self.request_cancellation
-        )
-
-    def is_execution_running(self):
-        # ------------------------------------------------------------------
-        # SECTION 9: RETURN CURRENT EXECUTION STATE
-        # ------------------------------------------------------------------
-        return (
-            self.thread is not None and
-            self.thread.isRunning()
-        )
+        # Execute Anonymization remains connected through MainWindow because
+        # MainWindow first collects configuration from Sections 1-4.
+        self.cancel_button.clicked.connect(self.request_cancellation)
 
     def run_execution(
         self,
@@ -159,42 +148,28 @@ class ExecutionPanel(QWidget):
         # SECTION 10: PREVENT DUPLICATE EXECUTION
         # ------------------------------------------------------------------
         if self.is_execution_running():
-            logger.warning(
-                "Execution request rejected because another anonymization "
-                "execution is already running."
-            )
-
             self.status_label.setStyleSheet(
                 "color: red; font-weight: bold;"
             )
-
             self.status_label.setText(
-                "Execution is already running."
+                "An anonymization execution is already running."
             )
-
             return
 
         # ------------------------------------------------------------------
-        # SECTION 11: VALIDATE GUI DATABASE CONNECTION
+        # SECTION 11: VALIDATE DATABASE CONNECTION
         # ------------------------------------------------------------------
         if connection_config is None:
-            logger.warning(
-                "Execution stopped because no tested GUI database "
-                "connection was available."
-            )
-
             self.status_label.setStyleSheet(
                 "color: red; font-weight: bold;"
             )
-
             self.status_label.setText(
-                "Execution stopped: Test the database connection first."
+                "Execution cannot start. Test the database connection first."
             )
-
             return
 
         # ------------------------------------------------------------------
-        # SECTION 12: VALIDATE CONFIGURATION
+        # SECTION 12: VALIDATE COMPLETE CONFIGURATION
         # ------------------------------------------------------------------
         validation_error = validate_configuration(
             source_config,
@@ -203,39 +178,20 @@ class ExecutionPanel(QWidget):
         )
 
         if validation_error:
-            logger.warning(
-                "Execution validation failed | Source=%s.%s | Reason=%s",
-                source_config.get("source_schema", ""),
-                source_config.get("source_table", ""),
-                validation_error
-            )
-
             self.status_label.setStyleSheet(
                 "color: red; font-weight: bold;"
             )
-
             self.status_label.setText(
-                f"Execution stopped: {validation_error}"
+                f"Execution validation failed: {validation_error}"
             )
 
+            logger.warning(
+                "Execution stopped because configuration validation failed."
+            )
             return
 
         # ------------------------------------------------------------------
-        # SECTION 13: LOG ACCEPTED EXECUTION REQUEST
-        # ------------------------------------------------------------------
-        logger.info(
-            "Execution request accepted | Source=%s.%s | Target=%s.%s | "
-            "Rules=%s | ExcludedColumns=%s",
-            source_config["source_schema"],
-            source_config["source_table"],
-            target_config["target_schema"],
-            target_config["target_table"],
-            len(rules),
-            len(target_config["excluded_columns"])
-        )
-
-        # ------------------------------------------------------------------
-        # SECTION 14: PREPARE TARGET TABLE
+        # SECTION 13: PREPARE OUT_PLACE TARGET TABLE
         # ------------------------------------------------------------------
         included_columns = self.prepare_target_table(
             connection_config,
@@ -243,11 +199,20 @@ class ExecutionPanel(QWidget):
             target_config
         )
 
+        # None means target preparation failed or the user cancelled because
+        # the target table already existed.
         if included_columns is None:
             return
 
         # ------------------------------------------------------------------
-        # SECTION 15: START BACKGROUND EXECUTION
+        # SECTION 14: STORE CURRENT EXECUTION CONFIGURATION
+        # ------------------------------------------------------------------
+        self.current_source_config = source_config
+        self.current_rules = rules
+        self.current_target_config = target_config
+
+        # ------------------------------------------------------------------
+        # SECTION 15: START BACKGROUND WORKER
         # ------------------------------------------------------------------
         self.start_worker(
             connection_config,
@@ -264,17 +229,16 @@ class ExecutionPanel(QWidget):
         target_config
     ):
         # ------------------------------------------------------------------
-        # SECTION 16: READ TARGET CONFIGURATION
+        # SECTION 16: READ TARGET-PREPARATION CONFIGURATION
         # ------------------------------------------------------------------
         source_schema = source_config["source_schema"]
         source_table = source_config["source_table"]
 
         target_schema = target_config["target_schema"]
         target_table = target_config["target_table"]
-
         excluded_columns = target_config["excluded_columns"]
 
-        source_columns = [
+        available_columns = [
             column["column_name"]
             for column in source_config["table_columns"]
         ]
@@ -283,96 +247,70 @@ class ExecutionPanel(QWidget):
 
         try:
             # ------------------------------------------------------------------
-            # SECTION 17: CONNECT FOR TARGET PREPARATION
+            # SECTION 17: CONNECT FOR TARGET DDL
             # ------------------------------------------------------------------
-            self.status_label.setStyleSheet("")
-            self.status_label.setText(
-                "Preparing target table..."
-            )
+            # Target preparation remains in the GUI thread because an existing
+            # target requires an interactive QMessageBox confirmation.
+            connection = connect_to_oracle(connection_config)
 
-            connection = connect_to_oracle(
-                connection_config
-            )
-
+            # ------------------------------------------------------------------
+            # SECTION 18: CREATE EMPTY TARGET TABLE
+            # ------------------------------------------------------------------
             try:
-                # --------------------------------------------------------------
-                # SECTION 18: CREATE TARGET TABLE
-                # --------------------------------------------------------------
                 included_columns = create_target_table(
                     connection,
                     source_schema,
                     source_table,
                     target_schema,
                     target_table,
-                    source_columns,
+                    available_columns,
                     excluded_columns
                 )
 
-                logger.info(
-                    "Target table created successfully | Source=%s.%s | "
-                    "Target=%s.%s | IncludedColumns=%s | ExcludedColumns=%s",
-                    source_schema,
-                    source_table,
-                    target_schema,
-                    target_table,
-                    len(included_columns),
-                    len(excluded_columns)
-                )
-
             except DatabaseError as error:
-                # --------------------------------------------------------------
-                # SECTION 19: INSPECT ORACLE ERROR
-                # --------------------------------------------------------------
                 error_object = error.args[0]
 
+                # --------------------------------------------------------------
+                # SECTION 19: HANDLE TARGET ALREADY EXISTS
+                # --------------------------------------------------------------
+                # ORA-00955 means the target object already exists.
                 if error_object.code != 955:
                     raise
 
-                logger.warning(
-                    "Target table already exists | Target=%s.%s",
+                logger.info(
+                    "Execution target already exists | Target=%s.%s",
                     target_schema,
                     target_table
                 )
 
-                # --------------------------------------------------------------
-                # SECTION 20: CONFIRM TARGET REPLACEMENT
-                # --------------------------------------------------------------
                 answer = QMessageBox.question(
                     self,
                     "Target Table Already Exists",
-                    f"{target_schema}.{target_table} already exists.\n\n"
-                    f"Drop and recreate it?",
+                    f"Target table {target_schema}.{target_table} "
+                    f"already exists.\n\n"
+                    f"Do you want to drop and recreate it?",
                     QMessageBox.StandardButton.Yes |
+                    QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No
                 )
 
                 if answer != QMessageBox.StandardButton.Yes:
-                    logger.info(
-                        "Execution cancelled because existing target table "
-                        "was preserved | Target=%s.%s",
-                        target_schema,
-                        target_table
-                    )
-
                     self.status_label.setStyleSheet("")
-
                     self.status_label.setText(
                         "Execution cancelled. Existing target table "
                         "was not changed."
                     )
 
+                    logger.info(
+                        "Execution cancelled because existing target "
+                        "replacement was not approved."
+                    )
+
                     return None
 
                 # --------------------------------------------------------------
-                # SECTION 21: DROP EXISTING TARGET TABLE
+                # SECTION 20: DROP EXISTING TARGET
                 # --------------------------------------------------------------
-                logger.info(
-                    "User approved replacement of existing target table | "
-                    "Target=%s.%s",
-                    target_schema,
-                    target_table
-                )
-
                 drop_target_table(
                     connection,
                     target_schema,
@@ -380,14 +318,13 @@ class ExecutionPanel(QWidget):
                 )
 
                 logger.info(
-                    "Existing target table dropped successfully | "
-                    "Target=%s.%s",
+                    "Existing execution target dropped | Target=%s.%s",
                     target_schema,
                     target_table
                 )
 
                 # --------------------------------------------------------------
-                # SECTION 22: RECREATE TARGET TABLE
+                # SECTION 21: RECREATE EMPTY TARGET
                 # --------------------------------------------------------------
                 included_columns = create_target_table(
                     connection,
@@ -395,18 +332,22 @@ class ExecutionPanel(QWidget):
                     source_table,
                     target_schema,
                     target_table,
-                    source_columns,
+                    available_columns,
                     excluded_columns
                 )
 
-                logger.info(
-                    "Target table recreated successfully | Target=%s.%s | "
-                    "IncludedColumns=%s | ExcludedColumns=%s",
-                    target_schema,
-                    target_table,
-                    len(included_columns),
-                    len(excluded_columns)
-                )
+            # ------------------------------------------------------------------
+            # SECTION 22: REPORT TARGET PREPARATION SUCCESS
+            # ------------------------------------------------------------------
+            logger.info(
+                "Execution target prepared successfully | "
+                "Source=%s.%s | Target=%s.%s | Columns=%s",
+                source_schema,
+                source_table,
+                target_schema,
+                target_table,
+                len(included_columns)
+            )
 
             return included_columns
 
@@ -414,29 +355,27 @@ class ExecutionPanel(QWidget):
             # ------------------------------------------------------------------
             # SECTION 23: HANDLE TARGET PREPARATION FAILURE
             # ------------------------------------------------------------------
-            logger.exception(
-                "Target preparation failed | Source=%s.%s | "
-                "Target=%s.%s | Error=%s",
-                source_schema,
-                source_table,
-                target_schema,
-                target_table,
-                error
-            )
-
             self.status_label.setStyleSheet(
                 "color: red; font-weight: bold;"
             )
-
             self.status_label.setText(
-                f"Target preparation failed: {error}"
+                f"Unable to prepare target table: {error}"
+            )
+
+            logger.exception(
+                "Target-table preparation failed | "
+                "Source=%s.%s | Target=%s.%s",
+                source_schema,
+                source_table,
+                target_schema,
+                target_table
             )
 
             return None
 
         finally:
             # ------------------------------------------------------------------
-            # SECTION 24: CLOSE TARGET CONNECTION
+            # SECTION 24: CLOSE TARGET-PREPARATION CONNECTION
             # ------------------------------------------------------------------
             if connection is not None:
                 connection.close()
@@ -450,19 +389,12 @@ class ExecutionPanel(QWidget):
         included_columns
     ):
         # ------------------------------------------------------------------
-        # SECTION 25: STORE CURRENT EXECUTION CONFIGURATION
+        # SECTION 25: CREATE THREAD
         # ------------------------------------------------------------------
-        self.current_source_config = source_config.copy()
-        self.current_rules = rules.copy()
-        self.current_target_config = target_config.copy()
+        self.thread = QThread()
 
         # ------------------------------------------------------------------
-        # SECTION 26: CREATE QTHREAD
-        # ------------------------------------------------------------------
-        self.thread = QThread(self)
-
-        # ------------------------------------------------------------------
-        # SECTION 27: CREATE WORKER
+        # SECTION 26: CREATE EXECUTION WORKER
         # ------------------------------------------------------------------
         self.worker = ExecutionWorker(
             connection_config,
@@ -473,119 +405,68 @@ class ExecutionPanel(QWidget):
             batch_size=1000
         )
 
-        self.worker.moveToThread(
-            self.thread
-        )
+        self.worker.moveToThread(self.thread)
 
         # ------------------------------------------------------------------
-        # SECTION 28: CONNECT WORKER SIGNALS
+        # SECTION 27: CONNECT THREAD AND WORKER SIGNALS
         # ------------------------------------------------------------------
-        self.thread.started.connect(
-            self.worker.run
-        )
+        self.thread.started.connect(self.worker.run)
 
-        self.worker.progress.connect(
-            self.update_progress
-        )
+        self.worker.progress.connect(self.execution_progress)
+        self.worker.completed.connect(self.execution_completed)
+        self.worker.cancelled.connect(self.execution_cancelled)
+        self.worker.failed.connect(self.execution_failed)
 
-        self.worker.completed.connect(
-            self.execution_completed
-        )
+        # Worker always emits finished regardless of SUCCESS, CANCELLED
+        # or FAILED.
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
 
-        self.worker.cancelled.connect(
-            self.execution_cancelled
-        )
-
-        self.worker.failed.connect(
-            self.execution_failed
-        )
-
-        self.worker.finished.connect(
-            self.thread.quit
-        )
-
-        self.thread.finished.connect(
-            self.worker.deleteLater
-        )
-
-        self.thread.finished.connect(
-            self.thread_finished
-        )
-
-        self.thread.finished.connect(
-            self.thread.deleteLater
-        )
+        self.thread.finished.connect(self.execution_thread_finished)
+        self.thread.finished.connect(self.thread.deleteLater)
 
         # ------------------------------------------------------------------
-        # SECTION 29: PREPARE GUI FOR EXECUTION
+        # SECTION 28: PREPARE GUI FOR ACTIVE EXECUTION
         # ------------------------------------------------------------------
         self.execute_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
 
-        # Indeterminate progress while total row count is unknown.
+        # We intentionally do not issue COUNT(*) before execution.
+        #
+        # A 0,0 QProgressBar displays Qt's busy/indeterminate progress mode.
         self.progress_bar.setRange(0, 0)
 
         self.status_label.setStyleSheet("")
         self.status_label.setText(
-            "Execution running..."
+            "Anonymization execution started..."
         )
 
-        # Protect configuration panels through MainWindow.
+        # MainWindow uses this signal to disable configuration sections while
+        # the background execution is active.
         self.execution_state_changed.emit(True)
 
         logger.info(
-            "Background anonymization execution started | "
-            "Source=%s.%s | Target=%s.%s | BatchSize=%s",
-            source_config["source_schema"],
-            source_config["source_table"],
-            target_config["target_schema"],
-            target_config["target_table"],
-            1000
+            "Background anonymization worker started."
         )
 
         # ------------------------------------------------------------------
-        # SECTION 30: START QTHREAD
+        # SECTION 29: START BACKGROUND THREAD
         # ------------------------------------------------------------------
         self.thread.start()
 
-    def request_cancellation(self):
-        # ------------------------------------------------------------------
-        # SECTION 31: REQUEST SAFE CANCELLATION
-        # ------------------------------------------------------------------
-        # requestInterruption() does not kill the worker.
-        #
-        # It sets an interruption flag that ExecutionWorker checks at safe
-        # processing checkpoints.
-        if not self.is_execution_running():
-            return
-
-        logger.warning(
-            "User requested anonymization execution cancellation."
-        )
-
-        self.thread.requestInterruption()
-
-        # Prevent repeated cancellation requests.
-        self.cancel_button.setEnabled(False)
-
-        self.status_label.setStyleSheet("")
-        self.status_label.setText(
-            "Cancellation requested. Waiting for safe rollback..."
-        )
-
-    def update_progress(
+    def execution_progress(
         self,
         batch_number,
         total_rows
     ):
         # ------------------------------------------------------------------
-        # SECTION 32: DISPLAY PROGRESS
+        # SECTION 30: DISPLAY EXECUTION PROGRESS
         # ------------------------------------------------------------------
         self.status_label.setStyleSheet("")
 
         self.status_label.setText(
-            f"Processing batch {batch_number} - "
-            f"{total_rows} rows processed."
+            f"Processing batch {batch_number} | "
+            f"{total_rows:,} rows processed"
         )
 
     def execution_completed(
@@ -593,37 +474,27 @@ class ExecutionPanel(QWidget):
         execution_stats
     ):
         # ------------------------------------------------------------------
-        # SECTION 33: HANDLE SUCCESSFUL EXECUTION
+        # SECTION 31: DISPLAY SUCCESSFUL EXECUTION
         # ------------------------------------------------------------------
-        self.cancel_button.setEnabled(False)
-
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(100)
 
-        total_rows = execution_stats["rows_processed"]
-
-        self.status_label.setStyleSheet("")
-
-        self.status_label.setText(
-            f"Execution completed successfully. "
-            f"{total_rows} rows processed."
+        rows_processed = execution_stats.get(
+            "rows_processed",
+            0
         )
 
-        logger.info(
-            "Background anonymization execution completed | "
-            "Source=%s.%s | Target=%s.%s | Rows=%s | "
-            "Batches=%s | Duration=%.2fs",
-            self.current_source_config["source_schema"],
-            self.current_source_config["source_table"],
-            self.current_target_config["target_schema"],
-            self.current_target_config["target_table"],
-            execution_stats["rows_processed"],
-            execution_stats["batches_processed"],
-            execution_stats["duration_seconds"]
+        self.status_label.setStyleSheet(
+            "color: green; font-weight: bold;"
+        )
+
+        self.status_label.setText(
+            f"✓ Anonymization completed successfully. "
+            f"{rows_processed:,} rows processed."
         )
 
         # ------------------------------------------------------------------
-        # SECTION 34: BUILD SUCCESS SUMMARY
+        # SECTION 32: BUILD EXECUTION SUMMARY
         # ------------------------------------------------------------------
         summary = build_execution_summary(
             self.current_source_config,
@@ -632,48 +503,29 @@ class ExecutionPanel(QWidget):
             execution_stats
         )
 
-        self.summary_ready.emit(
-            summary
-        )
+        self.summary_ready.emit(summary)
 
     def execution_cancelled(
         self,
         execution_stats
     ):
         # ------------------------------------------------------------------
-        # SECTION 35: HANDLE CANCELLED EXECUTION
+        # SECTION 33: DISPLAY CANCELLED EXECUTION
         # ------------------------------------------------------------------
-        self.cancel_button.setEnabled(False)
-
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
 
         self.status_label.setStyleSheet(
-            "color: orange; font-weight: bold;"
+            "color: #b26a00; font-weight: bold;"
         )
 
         self.status_label.setText(
-            "Execution cancelled. All uncommitted target rows were rolled back."
-        )
-
-        logger.warning(
-            "Background anonymization execution cancelled | "
-            "Source=%s.%s | Target=%s.%s | "
-            "RowsBeforeRollback=%s | Batches=%s | Duration=%.2fs",
-            self.current_source_config["source_schema"],
-            self.current_source_config["source_table"],
-            self.current_target_config["target_schema"],
-            self.current_target_config["target_table"],
-            execution_stats["rows_processed"],
-            execution_stats["batches_processed"],
-            execution_stats["duration_seconds"]
+            "Execution cancelled. Uncommitted rows were rolled back."
         )
 
         # ------------------------------------------------------------------
-        # SECTION 36: BUILD CANCELLATION SUMMARY
+        # SECTION 34: BUILD CANCELLATION SUMMARY
         # ------------------------------------------------------------------
-        # Cancellation is stored in execution history just like SUCCESS
-        # and FAILED, giving us a complete operational history.
         summary = build_execution_summary(
             self.current_source_config,
             self.current_rules,
@@ -681,47 +533,33 @@ class ExecutionPanel(QWidget):
             execution_stats
         )
 
-        self.summary_ready.emit(
-            summary
-        )
+        self.summary_ready.emit(summary)
 
     def execution_failed(
         self,
         execution_stats
     ):
         # ------------------------------------------------------------------
-        # SECTION 37: HANDLE EXECUTION FAILURE
+        # SECTION 35: DISPLAY FAILED EXECUTION
         # ------------------------------------------------------------------
-        self.cancel_button.setEnabled(False)
-
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
 
-        error_message = execution_stats["error"]
+        error = execution_stats.get(
+            "error",
+            "Unknown execution error."
+        )
 
         self.status_label.setStyleSheet(
             "color: red; font-weight: bold;"
         )
 
         self.status_label.setText(
-            f"Execution failed: {error_message}"
-        )
-
-        logger.error(
-            "Background anonymization execution failed | "
-            "Source=%s.%s | Target=%s.%s | "
-            "RowsBeforeRollback=%s | BatchesBeforeRollback=%s | Error=%s",
-            self.current_source_config["source_schema"],
-            self.current_source_config["source_table"],
-            self.current_target_config["target_schema"],
-            self.current_target_config["target_table"],
-            execution_stats["rows_processed"],
-            execution_stats["batches_processed"],
-            error_message
+            f"Execution failed: {error}"
         )
 
         # ------------------------------------------------------------------
-        # SECTION 38: BUILD FAILURE SUMMARY
+        # SECTION 36: BUILD FAILURE SUMMARY
         # ------------------------------------------------------------------
         summary = build_execution_summary(
             self.current_source_config,
@@ -730,54 +568,89 @@ class ExecutionPanel(QWidget):
             execution_stats
         )
 
-        self.summary_ready.emit(
-            summary
+        self.summary_ready.emit(summary)
+
+    def request_cancellation(self):
+        # ------------------------------------------------------------------
+        # SECTION 37: REQUEST SAFE EXECUTION CANCELLATION
+        # ------------------------------------------------------------------
+        if not self.is_execution_running():
+            return
+
+        # Do not use thread.terminate().
+        #
+        # requestInterruption() allows the worker to stop at a safe point,
+        # roll back uncommitted Oracle DML, close the connection, and exit.
+        self.thread.requestInterruption()
+
+        self.cancel_button.setEnabled(False)
+
+        self.status_label.setStyleSheet(
+            "color: #b26a00; font-weight: bold;"
         )
 
-    def thread_finished(self):
+        self.status_label.setText(
+            "Cancellation requested. Waiting for safe rollback..."
+        )
+
+        logger.info(
+            "Cooperative anonymization cancellation requested."
+        )
+
+    def execution_thread_finished(self):
         # ------------------------------------------------------------------
-        # SECTION 39: CLEAN UP THREAD REFERENCES
+        # SECTION 38: RESTORE GUI AFTER THREAD FINISHES
         # ------------------------------------------------------------------
         self.execute_button.setEnabled(True)
         self.cancel_button.setEnabled(False)
 
+        # MainWindow re-enables the configuration sections.
+        self.execution_state_changed.emit(False)
+
+        logger.info(
+            "Background anonymization worker thread finished."
+        )
+
+        # ------------------------------------------------------------------
+        # SECTION 39: CLEAR THREAD REFERENCES
+        # ------------------------------------------------------------------
         self.worker = None
         self.thread = None
 
-        # Configuration and application close protection can now be released.
-        self.execution_state_changed.emit(False)
+        self.current_source_config = None
+        self.current_rules = None
+        self.current_target_config = None
+
+    def is_execution_running(self):
+        # ------------------------------------------------------------------
+        # SECTION 40: REPORT EXECUTION STATE
+        # ------------------------------------------------------------------
+        return (
+            self.thread is not None
+            and self.thread.isRunning()
+        )
 
     def clear_panel(self):
         # ------------------------------------------------------------------
-        # SECTION 40: CLEAR EXECUTION PANEL
+        # SECTION 41: PROTECT ACTIVE EXECUTION
         # ------------------------------------------------------------------
         if self.is_execution_running():
-            logger.warning(
-                "Execution panel clear request rejected because "
-                "anonymization is currently running."
-            )
-
-            self.status_label.setStyleSheet(
-                "color: red; font-weight: bold;"
-            )
-
-            self.status_label.setText(
-                "Cannot clear execution status while processing is running."
-            )
-
             return
 
+        # ------------------------------------------------------------------
+        # SECTION 42: CLEAR EXECUTION PANEL
+        # ------------------------------------------------------------------
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
 
         self.execute_button.setEnabled(True)
         self.cancel_button.setEnabled(False)
 
+        self.status_label.setStyleSheet("")
+        self.status_label.setText(
+            "Ready to execute anonymization."
+        )
+
         self.current_source_config = None
         self.current_rules = None
         self.current_target_config = None
-
-        self.status_label.setStyleSheet("")
-        self.status_label.setText(
-            "Execution not yet started."
-        )
