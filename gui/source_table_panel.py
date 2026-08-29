@@ -9,26 +9,31 @@ Main responsibilities:
 - Receive a successfully tested GUI database connection configuration.
 - Use the GUI connection configuration when retrieving source metadata.
 - Retrieve source table metadata using database_metadata.py.
-- Display available source columns and datatypes.
-- Return the currently selected source column to other GUI components.
+- Display available source columns and Oracle datatypes.
+- Allow a source column to be selected for anonymization-rule configuration.
+- Return the currently selected source column.
 - Return metadata for the currently selected source column.
 - Return the current source-table configuration.
 - Notify other GUI components when source columns are successfully loaded.
-- Clear the current source configuration so a new session can start.
-- Record important source-metadata events and failures in the technical log.
+- Clear the current source configuration when starting a new session.
+- Record source metadata loading activity in the technical log.
 
-This module does not test database connections and does not perform anonymization.
+This module does not test database connections, perform anonymization,
+create target tables, or modify Oracle source data.
 """
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QFormLayout,
+    QGridLayout,
     QLineEdit,
     QPushButton,
     QLabel,
-    QListWidget
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QAbstractItemView
 )
 
 from database.oracle_connection import connect_to_oracle
@@ -39,7 +44,6 @@ from app_logging.log_manager import get_logger
 # ------------------------------------------------------------------
 # SECTION 1: CREATE APPLICATION LOGGER
 # ------------------------------------------------------------------
-# Use the shared DataAnonFramework logger for source metadata events.
 logger = get_logger()
 
 
@@ -48,8 +52,12 @@ class SourceTablePanel(QWidget):
     # ------------------------------------------------------------------
     # SIGNAL: SOURCE COLUMNS LOADED
     # ------------------------------------------------------------------
-    # The signal announces that source metadata has been loaded.
-    # It sends the source table name and list of column names.
+    # Sends:
+    #
+    # 1. Source table name
+    # 2. List of source column names
+    #
+    # MainWindow uses this signal to configure other GUI components.
     columns_loaded = Signal(str, object)
 
     def __init__(self):
@@ -58,131 +66,264 @@ class SourceTablePanel(QWidget):
         # ------------------------------------------------------------------
         # SECTION 2: CREATE SOURCE INPUT FIELDS
         # ------------------------------------------------------------------
-        # QLineEdit provides text boxes for entering the Oracle schema
-        # and source table.
         self.source_schema_input = QLineEdit()
         self.source_table_input = QLineEdit()
 
+        self.source_schema_input.setPlaceholderText("Source schema")
+        self.source_table_input.setPlaceholderText("Source table")
+
         # ------------------------------------------------------------------
-        # SECTION 3: CREATE SOURCE ACTION BUTTON
+        # SECTION 3: CREATE LOAD COLUMNS BUTTON
         # ------------------------------------------------------------------
-        # This button retrieves metadata for the entered source table.
         self.load_columns_button = QPushButton("Load Columns")
+        self.load_columns_button.setObjectName("primaryButton")
 
         # ------------------------------------------------------------------
-        # SECTION 4: CREATE COLUMN LIST
+        # SECTION 4: CREATE SOURCE COLUMN TABLE
         # ------------------------------------------------------------------
-        # QListWidget displays Oracle columns returned from the database.
-        self.column_list = QListWidget()
+        # Keep the attribute name column_list because MainWindow already
+        # connects to column_list.itemSelectionChanged.
+        #
+        # Internally it is now a QTableWidget rather than QListWidget.
+        self.column_list = QTableWidget()
 
-        # Keep enough vertical space to display at least five source columns.
-        self.column_list.setMinimumHeight(150)
+        self.column_list.setColumnCount(2)
+        self.column_list.setHorizontalHeaderLabels([
+            "Column Name",
+            "Data Type"
+        ])
 
-        # Reduce the list font size so more column information can be shown.
-        column_list_font = self.column_list.font()
-        column_list_font.setPointSize(8)
-        self.column_list.setFont(column_list_font)
+        # Select a complete metadata row instead of one individual cell.
+        self.column_list.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
 
-        # Store complete Oracle column metadata for later use.
+        self.column_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+
+        # Metadata is informational and must not be edited by the user.
+        self.column_list.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
+        )
+
+        # Alternate row shading improves readability when tables contain
+        # many Oracle columns.
+        self.column_list.setAlternatingRowColors(True)
+
+        # Row numbers do not add useful information here.
+        self.column_list.verticalHeader().setVisible(False)
+
+        # Allow the column name to use most of the available space.
+        header = self.column_list.horizontalHeader()
+
+        header.setSectionResizeMode(
+            0,
+            QHeaderView.ResizeMode.Stretch
+        )
+
+        header.setSectionResizeMode(
+            1,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+
+        # Keep Section 2 compact while still displaying several columns.
+        self.column_list.setMinimumHeight(160)
+
+        # ------------------------------------------------------------------
+        # SECTION 5: STORE SOURCE METADATA
+        # ------------------------------------------------------------------
+        # Full Oracle metadata is retained because later GUI components
+        # require both the column name and datatype.
         self.table_columns = []
 
-        # Store the successfully tested GUI database configuration.
+        # Successfully tested GUI database configuration supplied through
+        # MainWindow from DatabaseConnectionPanel.
         self.connection_config = None
 
         # ------------------------------------------------------------------
-        # SECTION 5: CREATE STATUS LABEL
+        # SECTION 6: CREATE STATUS LABEL
         # ------------------------------------------------------------------
-        # QLabel displays loading, validation, and source metadata messages.
-        self.status_label = QLabel("Status: Database connection not ready")
+        self.status_label = QLabel(
+            "Database connection not ready."
+        )
 
         # ------------------------------------------------------------------
-        # SECTION 6: CREATE SOURCE FORM LAYOUT
+        # SECTION 7: CREATE COMPACT SOURCE SELECTION LAYOUT
         # ------------------------------------------------------------------
-        # QFormLayout arranges labels beside their corresponding inputs.
-        form_layout = QFormLayout()
-        form_layout.addRow("Source Schema:", self.source_schema_input)
-        form_layout.addRow("Source Table:", self.source_table_input)
+        source_grid = QGridLayout()
+
+        source_grid.setContentsMargins(0, 0, 0, 0)
+        source_grid.setHorizontalSpacing(10)
+        source_grid.setVerticalSpacing(4)
+
+        # --------------------------------------------------------------
+        # LABEL ROW
+        # --------------------------------------------------------------
+        source_grid.addWidget(
+            QLabel("Source Schema"),
+            0,
+            0
+        )
+
+        source_grid.addWidget(
+            QLabel("Source Table"),
+            0,
+            1
+        )
+
+        # --------------------------------------------------------------
+        # INPUT ROW
+        # --------------------------------------------------------------
+        source_grid.addWidget(
+            self.source_schema_input,
+            1,
+            0
+        )
+
+        source_grid.addWidget(
+            self.source_table_input,
+            1,
+            1
+        )
+
+        source_grid.addWidget(
+            self.load_columns_button,
+            1,
+            2
+        )
+
+        # Source table normally needs slightly more horizontal space
+        # than the schema name.
+        source_grid.setColumnStretch(0, 1)
+        source_grid.setColumnStretch(1, 2)
+        source_grid.setColumnStretch(2, 0)
 
         # ------------------------------------------------------------------
-        # SECTION 7: CREATE PANEL LAYOUT
+        # SECTION 8: CREATE PANEL LAYOUT
         # ------------------------------------------------------------------
-        # QVBoxLayout arranges the source-table controls vertically.
         layout = QVBoxLayout()
-        layout.addLayout(form_layout)
-        layout.addWidget(self.load_columns_button)
-        layout.addWidget(QLabel("Available Columns:"))
-        layout.addWidget(self.column_list)
-        layout.addWidget(self.status_label)
+
+        # MainWindow's numbered QGroupBox already provides outer spacing.
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+
+        layout.addLayout(source_grid)
+
+        layout.addWidget(
+            QLabel("Available Columns")
+        )
+
+        layout.addWidget(
+            self.column_list
+        )
+
+        layout.addWidget(
+            self.status_label
+        )
+
         self.setLayout(layout)
 
         # ------------------------------------------------------------------
-        # SECTION 8: CONNECT BUTTON TO FUNCTION
+        # SECTION 9: CONNECT GUI EVENTS
         # ------------------------------------------------------------------
-        # clicked.connect() tells Qt which method to call after a click.
-        self.load_columns_button.clicked.connect(self.load_columns)
+        self.load_columns_button.clicked.connect(
+            self.load_columns
+        )
 
     def set_connection_config(self, connection_config):
         # ------------------------------------------------------------------
-        # SECTION 9: RECEIVE DATABASE CONNECTION CONFIGURATION
+        # SECTION 10: RECEIVE DATABASE CONNECTION CONFIGURATION
         # ------------------------------------------------------------------
-        # MainWindow passes the successfully tested GUI connection
-        # configuration received from DatabaseConnectionPanel.
+        # MainWindow passes the successfully tested in-memory configuration
+        # received from DatabaseConnectionPanel.
         self.connection_config = connection_config
 
         self.status_label.setStyleSheet("")
-        self.status_label.setText("Status: Database connection ready.")
+
+        self.status_label.setText(
+            "Database connection ready. Select a source table."
+        )
 
     def load_columns(self):
         # ------------------------------------------------------------------
-        # SECTION 10: READ SOURCE SCHEMA AND TABLE
+        # SECTION 11: READ SOURCE SCHEMA AND TABLE
         # ------------------------------------------------------------------
         source_schema = self.source_schema_input.text().strip().upper()
         source_table = self.source_table_input.text().strip().upper()
 
         # ------------------------------------------------------------------
-        # SECTION 11: VALIDATE REQUIRED INPUT
+        # SECTION 12: VALIDATE SOURCE SCHEMA
         # ------------------------------------------------------------------
         if not source_schema:
-            logger.warning("Source metadata loading stopped because source schema was not provided.")
-
-            self.status_label.setStyleSheet("color: red; font-weight: bold;")
-            self.status_label.setText("Status: Enter source schema.")
-            return
-
-        if not source_table:
-            logger.warning("Source metadata loading stopped because source table was not provided.")
-
-            self.status_label.setStyleSheet("color: red; font-weight: bold;")
-            self.status_label.setText("Status: Enter source table.")
-            return
-
-        # ------------------------------------------------------------------
-        # SECTION 12: VALIDATE GUI DATABASE CONNECTION
-        # ------------------------------------------------------------------
-        # Source metadata can only be loaded after the user has successfully
-        # tested the database connection.
-        if self.connection_config is None:
-            logger.warning(
-                "Source metadata loading stopped because no tested GUI database connection was available."
+            self.status_label.setStyleSheet(
+                "color: red; font-weight: bold;"
             )
 
-            self.status_label.setStyleSheet("color: red; font-weight: bold;")
-            self.status_label.setText("Status: Test the database connection first.")
+            self.status_label.setText(
+                "Enter the source schema."
+            )
+
+            return
+
+        # ------------------------------------------------------------------
+        # SECTION 13: VALIDATE SOURCE TABLE
+        # ------------------------------------------------------------------
+        if not source_table:
+            self.status_label.setStyleSheet(
+                "color: red; font-weight: bold;"
+            )
+
+            self.status_label.setText(
+                "Enter the source table."
+            )
+
+            return
+
+        # ------------------------------------------------------------------
+        # SECTION 14: VALIDATE DATABASE CONNECTION
+        # ------------------------------------------------------------------
+        if self.connection_config is None:
+            self.status_label.setStyleSheet(
+                "color: red; font-weight: bold;"
+            )
+
+            self.status_label.setText(
+                "Test the database connection first."
+            )
+
+            logger.warning(
+                "Source metadata request stopped because no tested GUI "
+                "database connection was available."
+            )
+
             return
 
         connection = None
 
         try:
             # ------------------------------------------------------------------
-            # SECTION 13: RETRIEVE ORACLE TABLE METADATA
+            # SECTION 15: PREPARE METADATA LOADING
             # ------------------------------------------------------------------
             self.status_label.setStyleSheet("")
-            self.status_label.setText("Status: Loading columns...")
 
-            # Open an Oracle connection using the already tested GUI settings.
-            connection = connect_to_oracle(self.connection_config)
+            self.status_label.setText(
+                "Loading source columns..."
+            )
 
-            # Retrieve source table column metadata.
+            self.column_list.setRowCount(0)
+            self.table_columns = []
+
+            # ------------------------------------------------------------------
+            # SECTION 16: CONNECT TO ORACLE
+            # ------------------------------------------------------------------
+            connection = connect_to_oracle(
+                self.connection_config
+            )
+
+            # ------------------------------------------------------------------
+            # SECTION 17: RETRIEVE SOURCE TABLE METADATA
+            # ------------------------------------------------------------------
             self.table_columns = get_table_columns(
                 connection,
                 source_schema,
@@ -190,54 +331,79 @@ class SourceTablePanel(QWidget):
             )
 
             # ------------------------------------------------------------------
-            # SECTION 14: HANDLE TABLE NOT FOUND
+            # SECTION 18: HANDLE TABLE NOT FOUND / NO COLUMNS
             # ------------------------------------------------------------------
-            # No returned metadata may mean the table does not exist or is
-            # not accessible to the connected Oracle user.
             if not self.table_columns:
-                self.column_list.clear()
+                self.status_label.setStyleSheet(
+                    "color: red; font-weight: bold;"
+                )
+
+                self.status_label.setText(
+                    f"Table {source_schema}.{source_table} "
+                    f"was not found or no columns were available."
+                )
 
                 logger.warning(
-                    "No metadata returned for source table %s.%s.",
+                    "Source metadata returned no columns | Source=%s.%s",
                     source_schema,
                     source_table
                 )
 
-                self.status_label.setStyleSheet("color: red; font-weight: bold;")
-                self.status_label.setText(
-                    f"Status: Table {source_schema}.{source_table} not found."
-                )
                 return
 
             # ------------------------------------------------------------------
-            # SECTION 15: DISPLAY SOURCE COLUMNS
+            # SECTION 19: DISPLAY SOURCE COLUMN METADATA
             # ------------------------------------------------------------------
-            # Clear previously displayed columns before loading the new table.
-            self.column_list.clear()
+            self.column_list.setRowCount(
+                len(self.table_columns)
+            )
 
-            for column in self.table_columns:
-                self.column_list.addItem(
-                    f'{column["column_name"]} ({column["data_type"]})'
+            for row, column in enumerate(self.table_columns):
+                column_name = column["column_name"]
+                data_type = column["data_type"]
+
+                column_item = QTableWidgetItem(
+                    column_name
                 )
 
-            self.status_label.setStyleSheet("")
+                datatype_item = QTableWidgetItem(
+                    data_type
+                )
+
+                self.column_list.setItem(
+                    row,
+                    0,
+                    column_item
+                )
+
+                self.column_list.setItem(
+                    row,
+                    1,
+                    datatype_item
+                )
+
+            # ------------------------------------------------------------------
+            # SECTION 20: REPORT SUCCESS
+            # ------------------------------------------------------------------
+            self.status_label.setStyleSheet(
+                "color: green; font-weight: bold;"
+            )
+
             self.status_label.setText(
-                f"Status: {len(self.table_columns)} columns loaded from "
+                f"✓ {len(self.table_columns)} columns loaded from "
                 f"{source_schema}.{source_table}."
             )
 
-            # ------------------------------------------------------------------
-            # SECTION 16: LOG SUCCESSFUL METADATA LOADING
-            # ------------------------------------------------------------------
             logger.info(
-                "Source metadata loaded successfully | Table=%s.%s | Columns=%s",
+                "Source metadata loaded successfully | "
+                "Source=%s.%s | Columns=%s",
                 source_schema,
                 source_table,
                 len(self.table_columns)
             )
 
             # ------------------------------------------------------------------
-            # SECTION 17: NOTIFY OTHER GUI COMPONENTS
+            # SECTION 21: NOTIFY OTHER GUI COMPONENTS
             # ------------------------------------------------------------------
             column_names = [
                 column["column_name"]
@@ -251,53 +417,64 @@ class SourceTablePanel(QWidget):
 
         except Exception as error:
             # ------------------------------------------------------------------
-            # SECTION 18: HANDLE METADATA LOADING FAILURE
+            # SECTION 22: HANDLE METADATA FAILURE
             # ------------------------------------------------------------------
-            # Record both the error and traceback in the technical log.
+            self.column_list.setRowCount(0)
+            self.table_columns = []
+
+            self.status_label.setStyleSheet(
+                "color: red; font-weight: bold;"
+            )
+
+            self.status_label.setText(
+                f"Unable to load source columns: {error}"
+            )
+
             logger.exception(
-                "Failed to load source metadata | Table=%s.%s | Error=%s",
+                "Source metadata loading failed | "
+                "Source=%s.%s | Error=%s",
                 source_schema,
                 source_table,
                 error
             )
 
-            self.status_label.setStyleSheet("color: red; font-weight: bold;")
-            self.status_label.setText(f"Status: Error - {error}")
-
         finally:
             # ------------------------------------------------------------------
-            # SECTION 19: CLOSE DATABASE CONNECTION
+            # SECTION 23: CLOSE DATABASE CONNECTION
             # ------------------------------------------------------------------
-            # Always release the metadata connection.
             if connection is not None:
                 connection.close()
 
     def get_selected_column(self):
         # ------------------------------------------------------------------
-        # SECTION 20: RETURN SELECTED COLUMN
+        # SECTION 24: RETURN SELECTED COLUMN NAME
         # ------------------------------------------------------------------
-        selected_item = self.column_list.currentItem()
+        selected_row = self.column_list.currentRow()
 
-        if selected_item is None:
+        if selected_row < 0:
             return None
 
-        # FULL_NAME (VARCHAR2) becomes FULL_NAME.
-        return selected_item.text().split(" (", 1)[0]
+        column_item = self.column_list.item(
+            selected_row,
+            0
+        )
+
+        if column_item is None:
+            return None
+
+        return column_item.text()
 
     def get_selected_column_info(self):
         # ------------------------------------------------------------------
-        # SECTION 21: RETURN SELECTED COLUMN METADATA
+        # SECTION 25: RETURN SELECTED COLUMN METADATA
         # ------------------------------------------------------------------
-        # Return both column name and Oracle metadata so datatype-aware
-        # strategy selection can be performed.
-        selected_item = self.column_list.currentItem()
+        # AnonymizationRulesPanel requires the Oracle datatype in addition
+        # to the column name so it can filter compatible strategies.
+        column_name = self.get_selected_column()
 
-        if selected_item is None:
+        if column_name is None:
             return None
 
-        column_name = selected_item.text().split(" (", 1)[0]
-
-        # Search the metadata previously returned by database_metadata.py.
         for column in self.table_columns:
             if column["column_name"] == column_name:
                 return column.copy()
@@ -306,10 +483,8 @@ class SourceTablePanel(QWidget):
 
     def get_source_config(self):
         # ------------------------------------------------------------------
-        # SECTION 22: RETURN SOURCE CONFIGURATION
+        # SECTION 26: RETURN SOURCE CONFIGURATION
         # ------------------------------------------------------------------
-        # Other GUI components can request source settings without
-        # directly accessing this panel's widgets.
         return {
             "source_schema": self.source_schema_input.text().strip().upper(),
             "source_table": self.source_table_input.text().strip().upper(),
@@ -318,14 +493,20 @@ class SourceTablePanel(QWidget):
 
     def clear_panel(self):
         # ------------------------------------------------------------------
-        # SECTION 23: CLEAR SOURCE PANEL
+        # SECTION 27: CLEAR SOURCE PANEL
         # ------------------------------------------------------------------
-        # Remove the current source configuration and metadata.
         self.source_schema_input.clear()
         self.source_table_input.clear()
-        self.column_list.clear()
+
+        self.column_list.setRowCount(0)
         self.table_columns.clear()
+
+        # Start Afresh also clears DatabaseConnectionPanel, therefore
+        # discard the previously supplied connection configuration.
         self.connection_config = None
 
         self.status_label.setStyleSheet("")
-        self.status_label.setText("Status: Database connection not ready")
+
+        self.status_label.setText(
+            "Database connection not ready."
+        )
