@@ -22,7 +22,7 @@ anonymization.
 # ------------------------------------------------------------------
 # Keep application identity information in one location so version
 # information is not duplicated across different modules.
-APP_NAME = "Data Anonymization Engine"
+APP_NAME = "Data Anonymization Engine - by ADIHUB BOT"
 APP_VERSION = "1.0.0"
 
 APP_DESCRIPTION = (
